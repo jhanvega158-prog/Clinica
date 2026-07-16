@@ -1,0 +1,93 @@
+<div class="app-shell">
+  <aside [class.open]="menuOpen">
+    <div class="brand"><span class="brand-mark">O</span><div><strong>OdontoCare</strong><small>Historia clínica dental</small></div></div>
+    <button class="new-btn" (click)="newHistory()"><span>＋</span>Nueva historia clínica</button>
+    <nav>
+      <p>GESTIÓN CLÍNICA</p>
+      <button [class.active]="section === 'resumen'" (click)="nav('resumen')"><span>⌂</span>Resumen</button>
+      <button [class.active]="section === 'paciente'" (click)="nav('paciente')"><span>♙</span>Datos del paciente</button>
+      <button [class.active]="section === 'anamnesis'" (click)="nav('anamnesis')"><span>☷</span>Anamnesis</button>
+      <button [class.active]="section === 'examen'" (click)="nav('examen')"><span>♡</span>Examen clínico</button>
+      <button [class.active]="section === 'odontograma'" (click)="nav('odontograma')"><span>♢</span>Odontograma</button>
+      <button [class.active]="section === 'diagnostico'" (click)="nav('diagnostico')"><span>⌕</span>Diagnóstico</button>
+      <button [class.active]="section === 'tratamiento'" (click)="nav('tratamiento')"><span>⌁</span>Tratamiento</button>
+    </nav>
+    <div class="side-note"><span>i</span><div><strong>Formulario MSP 033</strong><small>Estructura basada en HCU Odontología 2021.</small></div></div>
+    <div class="profile"><div class="avatar">DM</div><div><strong>Dra. Daniela Mena</strong><small>Odontóloga general</small></div><button>⋮</button></div>
+  </aside>
+
+  <main>
+    <header>
+      <button class="menu" (click)="menuOpen = !menuOpen">☰</button>
+      <div class="breadcrumb"><span>Historia clínica</span><b>/</b><strong>{{ patient.firstName }} {{ patient.lastName }}</strong></div>
+      <div class="header-actions"><span class="draft">● Borrador</span><button class="ghost" (click)="showToast('Vista de impresión disponible próximamente')">▣ <span>Vista previa</span></button><button class="save" (click)="save()">✓ Guardar</button></div>
+    </header>
+
+    <div class="content">
+      @if (section === 'resumen') {
+        <section class="hero"><div><span class="eyebrow">HISTORIA CLÍNICA ACTIVA</span><h1>Buenos días, Dra. Daniela</h1><p>Continúa el registro clínico de tu paciente. El formulario está completo en un 72%.</p></div><div class="progress-ring"><span>72<small>%</small></span></div></section>
+        <section class="patient-banner"><div class="patient-avatar">VM</div><div class="patient-main"><h2>{{patient.firstName}} {{patient.lastName}}</h2><p>{{patient.id}} · {{patient.age}} años · {{patient.sex}}</p></div><div class="meta"><span>Historia clínica<strong>{{patient.history}}</strong></span><span>Última atención<strong>15 jul 2026 · 09:30</strong></span></div><button (click)="nav('paciente')">Ver ficha →</button></section>
+        <div class="stats"><article><span class="stat-icon blue">♢</span><div><small>Piezas con hallazgos</small><strong>2</strong><p><i></i>1 caries · 1 obturación</p></div></article><article><span class="stat-icon orange">!</span><div><small>Alertas clínicas</small><strong>1</strong><p>Alergia a penicilina</p></div></article><article><span class="stat-icon green">✓</span><div><small>Próxima cita</small><strong>22 jul</strong><p>Control y profilaxis · 10:00</p></div></article></div>
+        <div class="dashboard-grid">
+          <section class="card journey"><div class="card-title"><div><span class="eyebrow">PROGRESO DEL REGISTRO</span><h2>Historia clínica MSP 033</h2></div><span>72% completado</span></div>
+            <div class="steps">
+              <button class="done" (click)="nav('paciente')"><i>✓</i><div><strong>Datos del paciente</strong><small>Identificación y datos generales</small></div><b>Completo</b><em>›</em></button>
+              <button class="done" (click)="nav('anamnesis')"><i>✓</i><div><strong>Anamnesis y antecedentes</strong><small>Motivo, enfermedad actual y riesgos</small></div><b>Completo</b><em>›</em></button>
+              <button class="current" (click)="nav('odontograma')"><i>3</i><div><strong>Examen clínico y odontograma</strong><small>Registra hallazgos por pieza dental</small></div><b>En curso</b><em>›</em></button>
+              <button (click)="nav('diagnostico')"><i>4</i><div><strong>Diagnóstico y plan</strong><small>CIE-10 y plan terapéutico</small></div><b>Pendiente</b><em>›</em></button>
+            </div>
+          </section>
+          <aside class="card protocol"><span class="protocol-icon">✦</span><span class="eyebrow">GUÍA DEL PROTOCOLO</span><h2>Antes de continuar</h2><p>El odontograma inicial no debe alterarse después de cerrar la evaluación. Usa rojo para patología actual y azul para tratamientos realizados.</p><button (click)="nav('odontograma')">Revisar simbología →</button><div class="source">Basado en Protocolos Odontológicos MSP</div></aside>
+        </div>
+        <section class="card appointment"><div><span class="calendar">22<small>JUL</small></span><div><span class="eyebrow">PRÓXIMA CITA</span><h3>Control y profilaxis dental</h3><p>Miércoles, 10:00 · Consultorio 2</p></div></div><button (click)="nav('tratamiento')">Ver plan de tratamiento</button></section>
+      }
+
+      @if (section === 'paciente') {
+        <section class="page-heading"><div><span class="eyebrow">SECCIÓN A</span><h1>Datos del establecimiento y paciente</h1><p>Información de identificación de la Historia Clínica Única.</p></div><span class="section-number">01</span></section>
+        <section class="form-card"><h2>Establecimiento de salud</h2><div class="form-grid"><label>Institución del sistema<input value="Ministerio de Salud Pública"></label><label>Unicódigo<input value="000482"></label><label class="span-2">Establecimiento<input value="Centro de Salud La Floresta"></label><label>Número de historia clínica<input [(ngModel)]="patient.history"></label><label>Número de archivo<input value="AR-20918"></label></div></section>
+        <section class="form-card"><h2>Identificación del paciente</h2><div class="form-grid"><label>Primer apellido<input [(ngModel)]="patient.lastName"></label><label>Segundo apellido<input value="Ruiz"></label><label>Primer nombre<input [(ngModel)]="patient.firstName"></label><label>Segundo nombre<input value="Sofía"></label><label>Documento de identidad<input [(ngModel)]="patient.id"></label><label>Teléfono<input [(ngModel)]="patient.phone"></label><label>Sexo<select [(ngModel)]="patient.sex"><option>Femenino</option><option>Masculino</option><option>Otro</option></select></label><label>Edad<input type="number" [(ngModel)]="patient.age"></label><label>Condición de edad<select><option>Años</option><option>Meses</option><option>Días</option></select></label><label>Embarazada<select [(ngModel)]="patient.pregnant"><option>No</option><option>Sí</option><option>No aplica</option></select></label></div></section>
+      }
+
+      @if (section === 'anamnesis') {
+        <section class="page-heading"><div><span class="eyebrow">SECCIONES B–E</span><h1>Anamnesis y antecedentes</h1><p>Registra el relato del paciente en sus propias palabras y los factores de riesgo.</p></div><span class="section-number">02</span></section>
+        <section class="form-card"><h2>Motivo de consulta</h2><label>Relato textual del paciente<textarea rows="3">“Me duele una muela de arriba cuando tomo algo frío.”</textarea><small>El protocolo indica conservar las palabras textuales entre comillas.</small></label></section>
+        <section class="form-card"><div class="title-with-tip"><h2>Enfermedad o problema actual</h2><span class="tip">Guía de dolor</span></div><div class="form-grid"><label>Inicio / cronología<input placeholder="¿Desde cuándo?"></label><label>Localización<input placeholder="¿En qué lugar?"></label><label>Características<select><option>Pulsátil</option><option>Continuo</option><option>Intermitente</option><option>Punzante</option><option>Urente</option></select></label><label>Intensidad<select><option>Leve</option><option selected>Moderada</option><option>Fuerte</option></select></label><label>Causa aparente<input placeholder="Frío, calor, dulce..."></label><label>Síntomas asociados<input placeholder="Irradiación, oído, ATM..."></label><label class="span-2">Evolución<textarea rows="3" placeholder="Describe la evolución secuencial de los síntomas"></textarea></label></div></section>
+        <section class="form-card"><h2>Antecedentes patológicos personales</h2><div class="check-grid">@for (item of personalHistory; track item) { <button [class.checked]="checkedHistory.has(item)" (click)="toggle(checkedHistory,item)"><i>{{checkedHistory.has(item) ? '✓' : ''}}</i>{{item}}</button> }</div><label class="top-gap">Otros antecedentes<input value="Alergia conocida a penicilina"></label></section>
+        <section class="form-card"><h2>Antecedentes patológicos familiares</h2><div class="check-grid">@for (item of ['Cardiopatía','Hipertensión arterial','Enf. cerebrovascular','Endócrino metabólico','Cáncer','Tuberculosis','Enf. mental','Enf. infecciosa','Malformación']; track item) { <button><i></i>{{item}}</button> }</div></section>
+      }
+
+      @if (section === 'examen') {
+        <section class="page-heading"><div><span class="eyebrow">SECCIONES F–G</span><h1>Examen clínico</h1><p>Signos vitales y valoración del sistema estomatognático.</p></div><span class="section-number">03</span></section>
+        <section class="form-card"><div class="title-with-tip"><h2>Constantes vitales</h2><span class="tip warning">⚠ Revisar valores fuera de rango</span></div><div class="vitals"><label><span>Temperatura</span><div><input value="36.7"><b>°C</b></div></label><label><span>Pulso</span><div><input value="76"><b>/ min</b></div></label><label><span>Frec. respiratoria</span><div><input value="17"><b>/ min</b></div></label><label><span>Presión arterial</span><div><input value="118/76"><b>mmHg</b></div></label></div></section>
+        <section class="form-card"><h2>Sistema estomatognático</h2><p class="muted">Selecciona las regiones con patología. Si no hay hallazgos, registra “Sin patología aparente”.</p><div class="check-grid exam">@for (item of stomatognathic; track item; let i=$index) { <button [class.checked]="checkedExam.has(item)" (click)="toggle(checkedExam,item)"><span>{{i+1}}</span><i>{{checkedExam.has(item) ? '✓' : ''}}</i>{{item}}</button> }</div><label class="top-gap">Descripción de la región afectada<textarea rows="4">11. A.T.M.: chasquido leve a la apertura, sin dolor ni limitación de movimiento.</textarea></label></section>
+      }
+
+      @if (section === 'odontograma') {
+        <section class="page-heading"><div><span class="eyebrow">SECCIONES H–K</span><h1>Odontograma</h1><p>Selecciona una condición y luego marca la pieza correspondiente.</p></div><span class="section-number">04</span></section>
+        <section class="form-card odontogram-card">
+          <div class="legend">@for (mark of marks; track mark.id) { <button [class.selected]="selectedMark === mark.id" (click)="selectedMark = mark.id"><i [style.background]="mark.color"></i>{{mark.label}}</button> }</div>
+          <div class="protocol-alert"><b>i</b><span><strong>Registro clínico inicial</strong> Rojo indica patología actual; azul, tratamiento realizado. Una vez cerrado, el odontograma no debe modificarse.</span></div>
+          <div class="dentition"><div class="dentition-title"><h3>Dentición permanente</h3><span>32 piezas</span></div><div class="teeth permanent">@for (tooth of permanent; track tooth.number) { <button class="tooth" [class]="tooth.mark || ''" [class.active]="selectedTooth === tooth" (click)="markTooth(tooth)"><span class="tooth-shape"><i></i><i></i><i></i><i></i><b></b></span><small>{{tooth.number}}</small></button> }</div></div>
+          <div class="dentition"><div class="dentition-title"><h3>Dentición temporal</h3><span>20 piezas</span></div><div class="teeth temporary">@for (tooth of temporary; track tooth.number) { <button class="tooth" [class]="tooth.mark || ''" [class.active]="selectedTooth === tooth" (click)="markTooth(tooth)"><span class="tooth-shape"><i></i><i></i><i></i><i></i><b></b></span><small>{{tooth.number}}</small></button> }</div></div>
+          @if (selectedTooth) { <div class="tooth-detail"><div><strong>Pieza {{selectedTooth.number}}</strong><span>{{selectedTooth.mark || 'Sin hallazgo'}}</span></div><label>Movilidad<select [(ngModel)]="selectedTooth.mobility"><option [ngValue]="undefined">No aplica</option><option [ngValue]="1">Grado 1</option><option [ngValue]="2">Grado 2</option><option [ngValue]="3">Grado 3</option></select></label><label>Recesión<select [(ngModel)]="selectedTooth.recession"><option [ngValue]="undefined">No aplica</option><option [ngValue]="1">Clase I</option><option [ngValue]="2">Clase II</option><option [ngValue]="3">Clase III</option><option [ngValue]="4">Clase IV</option></select></label><button (click)="selectedTooth.mark=undefined">Limpiar pieza</button></div> }
+        </section>
+        <div class="two-cols"><section class="form-card"><h2>Indicadores de salud bucal</h2><div class="form-grid"><label>Placa<select><option>0 — Ausente</option><option>1 — Leve</option><option>2 — Moderada</option><option>3 — Severa</option></select></label><label>Cálculo<select><option>0 — Ausente</option><option>1 — Leve</option><option>2 — Moderado</option><option>3 — Severo</option></select></label><label>Enfermedad periodontal<select><option>Sin patología</option><option>Leve</option><option>Moderada</option><option>Severa</option></select></label><label>Oclusión<select><option>Angle I</option><option>Angle II</option><option>Angle III</option></select></label></div></section><section class="form-card"><h2>Índices CPO–ceo</h2><div class="index-cards"><div><small>Cariadas</small><strong>1</strong></div><div><small>Perdidas</small><strong>0</strong></div><div><small>Obturadas</small><strong>1</strong></div><div class="total"><small>CPO total</small><strong>2</strong></div></div></section></div>
+      }
+
+      @if (section === 'diagnostico') {
+        <section class="page-heading"><div><span class="eyebrow">SECCIONES L–O</span><h1>Diagnóstico y plan</h1><p>Exámenes complementarios, clasificación CIE-10 y responsable.</p></div><span class="section-number">05</span></section>
+        <section class="form-card"><h2>Exámenes complementarios</h2><div class="check-grid"><button><i></i>Biometría</button><button><i></i>Química sanguínea</button><button class="checked"><i>✓</i>Rayos X</button><button><i></i>Otros</button></div><label class="top-gap">Pedido de examen<textarea rows="3">Radiografía periapical de pieza 16.</textarea></label></section>
+        <section class="form-card"><div class="card-title"><h2>Diagnósticos</h2><button class="mini">＋ Agregar diagnóstico</button></div><div class="diagnosis-row"><span>1</span><label>Diagnóstico<input value="Caries de dentina, pieza 16"></label><label>CIE-10<input value="K02.1"></label><label>Tipo<select><option>Definitivo</option><option>Presuntivo</option></select></label><button>⋮</button></div><div class="diagnosis-row"><span>2</span><label>Diagnóstico<input value="Trastorno de la articulación temporomandibular"></label><label>CIE-10<input value="K07.6"></label><label>Tipo<select><option>Presuntivo</option><option>Definitivo</option></select></label><button>⋮</button></div></section>
+        <section class="form-card"><h2>Profesional responsable</h2><div class="form-grid"><label>Fecha de apertura<input type="date" value="2026-07-15"></label><label>Hora<input type="time" value="09:30"></label><label>Primer nombre<input value="Daniela"></label><label>Primer apellido<input value="Mena"></label><label>Número de identificación<input value="1712456789"></label><label>Registro profesional<input value="MSP-OD-2841"></label></div></section>
+      }
+
+      @if (section === 'tratamiento') {
+        <section class="page-heading"><div><span class="eyebrow">SECCIÓN P</span><h1>Tratamiento</h1><p>Seguimiento por sesión, procedimientos, prescripciones y próxima cita.</p></div><span class="section-number">06</span></section>
+        <section class="form-card treatment-card"><div class="card-title"><div><h2>Plan terapéutico</h2><p class="muted">Ordenado por prioridad clínica</p></div><button class="mini">＋ Nueva sesión</button></div><article class="session"><div class="session-head"><span>SESIÓN 01</span><strong>15 jul 2026 · 09:30</strong><b>Completada</b></div><div class="session-grid"><div><small>DIAGNÓSTICO Y COMPLICACIONES</small><p>Caries de dentina en pieza 16. No presenta complicaciones.</p></div><div><small>PROCEDIMIENTO</small><p>Examen clínico, profilaxis y radiografía periapical solicitada.</p></div><div><small>PRESCRIPCIONES</small><p>Evitar alimentos muy fríos. Higiene oral 3 veces al día.</p></div></div></article><article class="session upcoming"><div class="session-head"><span>SESIÓN 02</span><strong>22 jul 2026 · 10:00</strong><b>Programada</b></div><div class="session-grid"><div><small>OBJETIVO</small><p>Restauración de pieza 16 con resina de fotopolimerización.</p></div><div><small>PROCEDIMIENTO</small><p>Por registrar durante la atención.</p></div><div><small>PRESCRIPCIONES</small><p>Por registrar.</p></div></div></article></section>
+        <section class="protocol-footer"><span>✦</span><div><strong>Recordatorio del protocolo</strong><p>Registra el código del procedimiento, indicaciones completas, fármaco genérico, vía, frecuencia y fecha de próxima cita. Al terminar, escribe “ALTA”.</p></div></section>
+      }
+    </div>
+  </main>
+  @if (menuOpen) { <button class="overlay" (click)="menuOpen=false"></button> }
+  @if (toast) { <div class="toast">✓ {{toast}}</div> }
+</div>
