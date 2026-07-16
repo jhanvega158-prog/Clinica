@@ -1,0 +1,40 @@
+<div class="page-title">
+  <div>
+    <h1>Dashboard</h1>
+    <p>Indicadores conectados a las views de PostgreSQL.</p>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn" (click)="load()" [disabled]="loading()">Actualizar</button>
+  </div>
+</div>
+
+<section class="cards">
+  <article class="metric"><small>Pacientes activos</small><strong>{{ resumen()?.pacientes_activos ?? 0 }}</strong></article>
+  <article class="metric"><small>Citas hoy</small><strong>{{ resumen()?.citas_hoy ?? 0 }}</strong></article>
+  <article class="metric"><small>Tratamientos pendientes</small><strong>{{ resumen()?.tratamientos_pendientes ?? 0 }}</strong></article>
+  <article class="metric"><small>Facturacion mes</small><strong>{{ resumen()?.facturacion_mes ?? 0 }}</strong></article>
+</section>
+
+<section class="panel">
+  <h2>Agenda proxima</h2>
+  @if (citas().length) {
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Paciente</th><th>Fecha</th><th>Hora</th><th>Motivo</th><th>Estado</th></tr></thead>
+        <tbody>
+          @for (cita of citas(); track cita.id) {
+            <tr>
+              <td>{{ cita.paciente || 'Sin paciente' }}</td>
+              <td>{{ cita.fecha || '-' }}</td>
+              <td>{{ cita.hora_inicio || '-' }}</td>
+              <td>{{ cita.motivo || '-' }}</td>
+              <td><span class="badge">{{ cita.estado || 'pendiente' }}</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <div class="empty">No hay registros en la vista del dashboard.</div>
+  }
+</section>

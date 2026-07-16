@@ -1,0 +1,38 @@
+<div class="page-title">
+  <div>
+    <h1>Reportes</h1>
+    <p>Resumen operativo listo para impresion PDF.</p>
+  </div>
+  <div class="actions">
+    <button class="btn" type="button" (click)="load()" [disabled]="loading()">Actualizar</button>
+    <button class="btn primary" type="button" (click)="print()">Imprimir PDF</button>
+  </div>
+</div>
+
+<section class="panel">
+  <h2>Resumen general</h2>
+  <div class="cards">
+    <article class="metric"><small>Pacientes activos</small><strong>{{ resumen()?.pacientes_activos ?? 0 }}</strong></article>
+    <article class="metric"><small>Citas hoy</small><strong>{{ resumen()?.citas_hoy ?? 0 }}</strong></article>
+    <article class="metric"><small>Tratamientos pendientes</small><strong>{{ resumen()?.tratamientos_pendientes ?? 0 }}</strong></article>
+    <article class="metric"><small>Inventario bajo</small><strong>{{ resumen()?.inventario_bajo ?? stockBajo().length }}</strong></article>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Citas</h2>
+  @if (citas().length) {
+    <div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Fecha</th><th>Hora</th><th>Motivo</th><th>Estado</th></tr></thead><tbody>
+      @for (cita of citas(); track cita.id) { <tr><td>{{ cita.paciente || '-' }}</td><td>{{ cita.fecha || '-' }}</td><td>{{ cita.hora_inicio || '-' }}</td><td>{{ cita.motivo || '-' }}</td><td>{{ cita.estado || '-' }}</td></tr> }
+    </tbody></table></div>
+  } @else { <div class="empty">No hay citas en la view de reportes.</div> }
+</section>
+
+<section class="panel">
+  <h2>Stock bajo</h2>
+  @if (stockBajo().length) {
+    <div class="table-wrap"><table><thead><tr><th>Codigo</th><th>Nombre</th><th>Stock</th><th>Minimo</th></tr></thead><tbody>
+      @for (item of stockBajo(); track item.id) { <tr><td>{{ item.codigo }}</td><td>{{ item.nombre }}</td><td>{{ item.stock }}</td><td>{{ item.stock_minimo }}</td></tr> }
+    </tbody></table></div>
+  } @else { <div class="empty">No hay insumos con stock bajo.</div> }
+</section>

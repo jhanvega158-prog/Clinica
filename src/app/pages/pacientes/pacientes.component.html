@@ -1,0 +1,67 @@
+<div class="page-title">
+  <div>
+    <h1>Pacientes</h1>
+    <p>CRUD conectado a Supabase con fotografia y archivos clinicos.</p>
+  </div>
+  <div class="actions">
+    <input class="search" type="search" placeholder="Buscar" [value]="searchTerm()" (input)="handleSearch($event)">
+    <button type="button" class="btn" (click)="clear()">Nuevo</button>
+  </div>
+</div>
+
+<form class="panel" [formGroup]="form" (ngSubmit)="save()">
+  <h2>{{ selectedId() ? 'Editar paciente' : 'Nuevo paciente' }}</h2>
+  <div class="grid">
+    <label class="field">Historia<input formControlName="numero_historia"></label>
+    <label class="field">Cedula<input formControlName="cedula"></label>
+    <label class="field">Nombres<input formControlName="nombres"></label>
+    <label class="field">Apellidos<input formControlName="apellidos"></label>
+    <label class="field">Nacimiento<input type="date" formControlName="fecha_nacimiento"></label>
+    <label class="field">Sexo<select formControlName="sexo"><option>Femenino</option><option>Masculino</option><option>Otro</option><option>No especificado</option></select></label>
+    <label class="field">Telefono<input formControlName="telefono"></label>
+    <label class="field">Correo<input type="email" formControlName="email"></label>
+    <label class="field span-2">Direccion<input formControlName="direccion"></label>
+    <label class="field">Ocupacion<input formControlName="ocupacion"></label>
+    <label class="field">Contacto emergencia<input formControlName="contacto_emergencia"></label>
+    <label class="field">Telefono emergencia<input formControlName="telefono_emergencia"></label>
+    <label class="field">Activo<select formControlName="activo"><option [ngValue]="true">Si</option><option [ngValue]="false">No</option></select></label>
+    <label class="field span-2">Alergias<textarea rows="2" formControlName="alergias"></textarea></label>
+    <label class="field span-2">Antecedentes<textarea rows="3" formControlName="antecedentes"></textarea></label>
+  </div>
+  @if (form.invalid && form.touched) {
+    <p class="error-text">Completa historia, cedula, nombres y apellidos.</p>
+  }
+  <div class="actions">
+    <button type="submit" class="btn primary" [disabled]="loading()">Guardar</button>
+    <button type="button" class="btn" (click)="clear()">Limpiar</button>
+  </div>
+</form>
+
+@if (pacientes().length) {
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Paciente</th><th>Documento</th><th>Contacto</th><th>Estado</th><th>Archivos</th><th>Acciones</th></tr></thead>
+      <tbody>
+        @for (paciente of pacientes(); track paciente.id) {
+          <tr>
+            <td><strong>{{ paciente.apellidos }} {{ paciente.nombres }}</strong><br><span class="badge">{{ paciente.numero_historia }}</span></td>
+            <td>{{ paciente.cedula }}</td>
+            <td>{{ paciente.telefono || '-' }}<br>{{ paciente.email || '-' }}</td>
+            <td>{{ paciente.activo ? 'Activo' : 'Inactivo' }}</td>
+            <td>
+              <label class="file-action">Foto<input type="file" accept="image/*" (change)="upload($event,paciente,'foto')"></label>
+              <label class="file-action">RX<input type="file" accept="image/*,.pdf" (change)="upload($event,paciente,'radiografia')"></label>
+              <label class="file-action">Doc<input type="file" (change)="upload($event,paciente,'documento')"></label>
+            </td>
+            <td class="actions">
+              <button type="button" class="btn" (click)="edit(paciente)">Editar</button>
+              <button type="button" class="btn danger" (click)="remove(paciente)">Eliminar</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+} @else {
+  <div class="empty">No hay pacientes registrados en Supabase.</div>
+}

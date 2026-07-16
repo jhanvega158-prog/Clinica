@@ -1,0 +1,17 @@
+<div class="page-title"><div><h1>Facturacion</h1><p>Facturas listas para imprimir o exportar a PDF desde el navegador.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button><button class="btn primary" type="button" (click)="print()">Imprimir PDF</button></div></div>
+<form class="panel" [formGroup]="form" (ngSubmit)="save()">
+  <h2>{{ selectedId() ? 'Editar factura' : 'Nueva factura' }}</h2>
+  <div class="grid">
+    <label class="field">Paciente ID<input formControlName="paciente_id"></label><label class="field">Numero<input formControlName="numero"></label>
+    <label class="field">Fecha<input type="date" formControlName="fecha"></label><label class="field">Estado<select formControlName="estado"><option>pendiente</option><option>completado</option><option>anulado</option></select></label>
+    <label class="field">Subtotal<input type="number" formControlName="subtotal"></label><label class="field">Impuesto<input type="number" formControlName="impuesto"></label>
+    <label class="field">Descuento<input type="number" formControlName="descuento"></label><label class="field">Total<input [value]="total()" readonly></label>
+    <label class="field span-2">Observaciones<textarea rows="2" formControlName="observaciones"></textarea></label>
+  </div>
+  <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar</button><button class="btn" type="button" (click)="clear()">Limpiar</button></div>
+</form>
+@if (facturas().length) {
+  <div class="table-wrap"><table><thead><tr><th>Numero</th><th>Fecha</th><th>Paciente</th><th>Total</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+    @for (factura of facturas(); track factura.id) { <tr><td>{{ factura.numero }}</td><td>{{ factura.fecha }}</td><td>{{ factura.paciente_id }}</td><td>{{ factura.total }}</td><td><span class="badge">{{ factura.estado }}</span></td><td class="actions"><button class="btn" type="button" (click)="edit(factura)">Editar</button><button class="btn danger" type="button" (click)="remove(factura)">Eliminar</button></td></tr> }
+  </tbody></table></div>
+} @else { <div class="empty">No hay facturas registradas.</div> }

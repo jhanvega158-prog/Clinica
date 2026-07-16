@@ -1,0 +1,22 @@
+<div class="page-title"><div><h1>Agenda</h1><p>Citas y controles guardados en Supabase.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button></div></div>
+<form class="panel" [formGroup]="form" (ngSubmit)="save()">
+  <h2>{{ selectedId() ? 'Editar cita' : 'Nueva cita' }}</h2>
+  <div class="grid">
+    <label class="field">Paciente ID<input formControlName="paciente_id"></label>
+    <label class="field">Odontologo ID<input formControlName="usuario_id"></label>
+    <label class="field">Fecha<input type="date" formControlName="fecha"></label>
+    <label class="field">Hora inicio<input type="time" formControlName="hora_inicio"></label>
+    <label class="field">Hora fin<input type="time" formControlName="hora_fin"></label>
+    <label class="field">Estado<select formControlName="estado"><option>pendiente</option><option>activo</option><option>completado</option><option>anulado</option></select></label>
+    <label class="field span-2">Motivo<input formControlName="motivo"></label>
+    <label class="field span-2">Notas<textarea rows="2" formControlName="notas"></textarea></label>
+  </div>
+  <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar</button><button class="btn" type="button" (click)="clear()">Limpiar</button></div>
+</form>
+@if (citas().length) {
+  <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Horario</th><th>Paciente</th><th>Motivo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+    @for (cita of citas(); track cita.id) {
+      <tr><td>{{ cita.fecha }}</td><td>{{ cita.hora_inicio }} - {{ cita.hora_fin || '-' }}</td><td>{{ cita.paciente_id }}</td><td>{{ cita.motivo }}</td><td><span class="badge">{{ cita.estado }}</span></td><td class="actions"><button class="btn" type="button" (click)="edit(cita)">Editar</button><button class="btn danger" type="button" (click)="remove(cita)">Eliminar</button></td></tr>
+    }
+  </tbody></table></div>
+} @else { <div class="empty">No hay citas registradas.</div> }

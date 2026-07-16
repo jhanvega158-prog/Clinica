@@ -1,0 +1,21 @@
+<div class="page-title"><div><h1>Odontograma</h1><p>Piezas dentales, hallazgos y calculo CPO via RPC.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button></div></div>
+<form class="panel" [formGroup]="form" (ngSubmit)="save()">
+  <h2>{{ selectedId() ? 'Editar odontograma' : 'Nuevo odontograma' }}</h2>
+  <div class="grid"><label class="field">Paciente ID<input formControlName="paciente_id"></label><label class="field">Historia ID<input formControlName="historia_id"></label><label class="field">Tipo<select formControlName="tipo"><option>inicial</option><option>evolucion</option></select></label><label class="field">Estado<select formControlName="estado"><option>activo</option><option>completado</option><option>anulado</option></select></label><label class="field span-2">Observaciones<textarea rows="2" formControlName="observaciones"></textarea></label></div>
+  <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar odontograma</button><button class="btn" type="button" (click)="calculate()">Calcular CPO</button></div>
+</form>
+<section class="panel">
+  <h2>Registrar hallazgo</h2>
+  <form [formGroup]="detailForm" class="grid" (ngSubmit)="saveDetail()">
+    <label class="field">Pieza<input type="number" formControlName="pieza"></label><label class="field">Condicion<input formControlName="condicion"></label><label class="field">Superficie<input formControlName="superficie"></label><label class="field">Movilidad<input type="number" formControlName="movilidad"></label><label class="field">Recesion<input type="number" formControlName="recesion"></label><label class="field">Notas<input formControlName="notas"></label>
+    <div class="actions"><button class="btn primary" type="submit">Guardar hallazgo</button></div>
+  </form>
+  <div class="teeth">
+    @for (pieza of piezas; track pieza) { <button type="button" class="tooth" [class.marked]="hallazgos().has(pieza)" (click)="saveDetail(pieza)"><span>{{ pieza }}</span><small>{{ hallazgos().get(pieza) || '-' }}</small></button> }
+  </div>
+</section>
+<section class="cards">
+  <article class="metric"><small>Cariadas</small><strong>{{ cpo()?.cariadas ?? 0 }}</strong></article><article class="metric"><small>Perdidas</small><strong>{{ cpo()?.perdidas ?? 0 }}</strong></article><article class="metric"><small>Obturadas</small><strong>{{ cpo()?.obturadas ?? 0 }}</strong></article><article class="metric"><small>CPO total</small><strong>{{ cpo()?.total ?? 0 }}</strong></article>
+</section>
+<section class="panel"><h2>Hallazgos guardados</h2>@if (detalles().length) { <div class="table-wrap"><table><thead><tr><th>Pieza</th><th>Condicion</th><th>Superficie</th><th>Acciones</th></tr></thead><tbody>@for (detalle of detalles(); track detalle.id) { <tr><td>{{ detalle.pieza }}</td><td>{{ detalle.condicion }}</td><td>{{ detalle.superficie || '-' }}</td><td><button class="btn danger" type="button" (click)="removeDetail(detalle)">Eliminar</button></td></tr> }</tbody></table></div> } @else { <div class="empty">Selecciona un odontograma para ver hallazgos.</div> }</section>
+<section class="panel"><h2>Odontogramas</h2>@if (odontogramas().length) { <div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Tipo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>@for (item of odontogramas(); track item.id) { <tr><td>{{ item.paciente_id }}</td><td>{{ item.tipo }}</td><td><span class="badge">{{ item.estado }}</span></td><td class="actions"><button class="btn" type="button" (click)="select(item)">Abrir</button><button class="btn danger" type="button" (click)="remove(item)">Eliminar</button></td></tr> }</tbody></table></div> } @else { <div class="empty">No hay odontogramas registrados.</div> }</section>

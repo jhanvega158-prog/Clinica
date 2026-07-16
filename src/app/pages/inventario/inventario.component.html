@@ -1,0 +1,17 @@
+<div class="page-title"><div><h1>Inventario</h1><p>Materiales, alertas de stock y vencimientos.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Todos</button><button class="btn" type="button" (click)="loadLowStock()">Stock bajo</button></div></div>
+<form class="panel" [formGroup]="form" (ngSubmit)="save()">
+  <h2>{{ selectedId() ? 'Editar item' : 'Nuevo item' }}</h2>
+  <div class="grid">
+    <label class="field">Codigo<input formControlName="codigo"></label><label class="field">Nombre<input formControlName="nombre"></label>
+    <label class="field">Categoria<input formControlName="categoria"></label><label class="field">Unidad<input formControlName="unidad"></label>
+    <label class="field">Stock<input type="number" formControlName="stock"></label><label class="field">Stock minimo<input type="number" formControlName="stock_minimo"></label>
+    <label class="field">Costo<input type="number" formControlName="costo"></label><label class="field">Vencimiento<input type="date" formControlName="vencimiento"></label>
+    <label class="field">Activo<select formControlName="activo"><option [ngValue]="true">Si</option><option [ngValue]="false">No</option></select></label>
+  </div>
+  <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar</button><button class="btn" type="button" (click)="clear()">Limpiar</button></div>
+</form>
+@if (items().length) {
+  <div class="table-wrap"><table><thead><tr><th>Codigo</th><th>Nombre</th><th>Stock</th><th>Minimo</th><th>Vencimiento</th><th>Acciones</th></tr></thead><tbody>
+    @for (item of items(); track item.id) { <tr><td>{{ item.codigo }}</td><td>{{ item.nombre }}</td><td>{{ item.stock }} {{ item.unidad || '' }}</td><td>{{ item.stock_minimo }}</td><td>{{ item.vencimiento || '-' }}</td><td class="actions"><button class="btn" type="button" (click)="edit(item)">Editar</button><button class="btn danger" type="button" (click)="remove(item)">Eliminar</button></td></tr> }
+  </tbody></table></div>
+} @else { <div class="empty">No hay inventario registrado.</div> }

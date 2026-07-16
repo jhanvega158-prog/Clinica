@@ -1,0 +1,27 @@
+<div class="page-title"><div><h1>Historia clinica</h1><p>Anamnesis, examen, diagnosticos, documentos y cierre clinico.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nueva</button><button class="btn" type="button" (click)="load()">Actualizar</button><button class="btn primary" type="button" (click)="print()">Imprimir PDF</button></div></div>
+<form class="panel" [formGroup]="form" (ngSubmit)="save()">
+  <h2>{{ selectedId() ? 'Editar historia' : 'Nueva historia' }}</h2>
+  <div class="grid">
+    <label class="field">Paciente ID<input formControlName="paciente_id"></label><label class="field">Usuario ID<input formControlName="usuario_id"></label>
+    <label class="field span-2">Motivo de consulta<textarea rows="2" formControlName="motivo_consulta"></textarea></label>
+    <label class="field span-2">Enfermedad actual<textarea rows="2" formControlName="enfermedad_actual"></textarea></label>
+    <label class="field">Antecedentes personales JSON<textarea rows="4" formControlName="antecedentes_personales"></textarea></label>
+    <label class="field">Antecedentes familiares JSON<textarea rows="4" formControlName="antecedentes_familiares"></textarea></label>
+    <label class="field">Signos vitales JSON<textarea rows="4" formControlName="signos_vitales"></textarea></label>
+    <label class="field">Examen estomatognatico JSON<textarea rows="4" formControlName="examen_estomatognatico"></textarea></label>
+    <label class="field span-2">Diagnosticos JSON<textarea rows="4" formControlName="diagnosticos"></textarea></label>
+    <label class="field span-2">Plan de tratamiento<textarea rows="3" formControlName="plan_tratamiento"></textarea></label>
+    <label class="field">Estado<select formControlName="estado"><option>activo</option><option>pendiente</option><option>completado</option><option>anulado</option></select></label>
+    <label class="field">Observaciones<input formControlName="observaciones"></label>
+  </div>
+  <div class="actions">
+    <button class="btn primary" type="submit" [disabled]="loading()">Guardar</button>
+    <label class="btn">Subir radiografia<input hidden type="file" accept="image/*,.pdf" (change)="upload($event,'radiografia')"></label>
+    <label class="btn">Subir documento<input hidden type="file" (change)="upload($event,'documento')"></label>
+  </div>
+</form>
+@if (historias().length) {
+  <div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Motivo</th><th>Estado</th><th>Creada</th><th>Acciones</th></tr></thead><tbody>
+    @for (historia of historias(); track historia.id) { <tr><td>{{ historia.paciente_id }}</td><td>{{ historia.motivo_consulta || '-' }}</td><td><span class="badge">{{ historia.estado }}</span></td><td>{{ historia.created_at || '-' }}</td><td class="actions"><button class="btn" type="button" (click)="edit(historia)">Editar</button><button class="btn danger" type="button" (click)="remove(historia)">Eliminar</button></td></tr> }
+  </tbody></table></div>
+} @else { <div class="empty">No hay historias registradas.</div> }

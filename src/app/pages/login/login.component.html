@@ -1,0 +1,39 @@
+<main class="login">
+  <section class="login-card">
+    <div class="brand">
+      <span>OC</span>
+      <div>
+        <strong>OdontoCare</strong>
+        <small>Acceso clinico</small>
+      </div>
+    </div>
+
+    <h1>{{ recoveryMode() ? 'Recuperar contrasena' : 'Iniciar sesion' }}</h1>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <label class="field">
+        Usuario
+        <input appAutofocus type="text" formControlName="email" autocomplete="username">
+      </label>
+
+      @if (!recoveryMode()) {
+        <label class="field">
+          Contrasena
+          <input type="password" formControlName="password" autocomplete="current-password">
+        </label>
+      }
+
+      @if (form.invalid && form.touched) {
+        <p class="error-text">Completa los campos requeridos.</p>
+      }
+
+      <button class="btn primary" type="submit" [disabled]="auth.loading()">
+        {{ recoveryMode() ? 'Enviar recuperacion' : 'Entrar' }}
+      </button>
+
+      <button class="link" type="button" (click)="toggleRecovery()">
+        {{ recoveryMode() ? 'Volver al login' : 'Olvide mi contrasena' }}
+      </button>
+    </form>
+  </section>
+</main>
