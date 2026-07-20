@@ -1,10 +1,12 @@
 export const environment = {
   production: false,
-  supabaseUrl: 'https://wvwzzvijxorutkkdiwas.supabase.co',
-  supabaseAnonKey: 'sb_publishable_9dTFdSDAlP4cpmNH_ZJCGw_OVForXeP',
+  supabaseUrl: 'https://soquogsepvcrbihyrdjs.supabase.co',
+  supabaseAnonKey: 'sb_publishable_pqfyT7KznacBQcDTmf0lww_M6CrldF9',
   storageBuckets: {
     pacientes: 'pacientes',
     radiografias: 'radiografias',
-    documentos: 'documentos'
+    documentos: 'documentos',
+    examenes: 'examenes',
+    firmas: 'firmas'
   }
 } as const;

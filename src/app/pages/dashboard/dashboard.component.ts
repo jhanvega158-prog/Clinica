@@ -19,6 +19,9 @@ export class DashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    window.addEventListener('citas-updated', () => {
+      void this.load();
+    });
     void this.load();
   }
 
