@@ -16,6 +16,17 @@ import { PacientesService } from '../../core/services/pacientes.service';
 import { ToastService } from '../../core/services/toast.service';
 import { HistoriaService } from '../../core/services/historia.service';
 import { getToothShape, getToothVisualState, type FindingKind } from './odontograma-helpers';
+import { ValidationFeedbackDirective } from '../../shared/directives/validation-feedback.directive';
+import {
+  allowedValues,
+  ecuadorianCedula,
+  emptyToNull,
+  integerMin,
+  maxTrimLength,
+  normalizeWhitespace,
+  notBlankOptional,
+  requiredTrim
+} from '../../shared/utils/validation.utils';
 
 interface ToothViewModel {
   numero: number;
@@ -31,7 +42,7 @@ interface ToothViewModel {
 @Component({
   selector: 'app-odontograma',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, ValidationFeedbackDirective],
   templateUrl: './odontograma.component.html',
   styleUrl: './odontograma.component.css'
 })
@@ -56,10 +67,10 @@ export class OdontogramaComponent implements OnInit {
   readonly selectedTooth = signal<number | null>(null);
   readonly selectedFinding = signal<FindingKind>('caries');
   readonly piezas = [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28,48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38,55,54,53,52,51,61,62,63,64,65,85,84,83,82,81,71,72,73,74,75];
-  readonly form = this.fb.nonNullable.group({ cedula: ['', Validators.required], paciente_id: ['', Validators.required], historia_id: [''], tipo: ['inicial' as 'inicial' | 'evolucion', Validators.required], estado: ['activo' as EstadoRegistro, Validators.required], observaciones: [''] });
-  readonly detailForm = this.fb.nonNullable.group({ pieza: [11, Validators.required], superficie: [''], movilidad: [0], recesion: [0], notas: [''] });
-  readonly cpoForm = this.fb.nonNullable.group({ cariadas: [0, [Validators.min(0)]], perdidas: [0, [Validators.min(0)]], obturadas: [0, [Validators.min(0)]], ceo: [0, [Validators.min(0)]], total: [0, [Validators.min(0)]], observaciones: [''] });
-  readonly indicadoresForm = this.fb.nonNullable.group({ higiene_placa: [false], higiene_calculo: [false], higiene_gingivitis: [false], periodontal_leve: [false], periodontal_moderada: [false], periodontal_severa: [false], oclusion_clase_i: [false], oclusion_clase_ii: [false], oclusion_clase_iii: [false], fluorosis_leve: [false], fluorosis_moderada: [false], fluorosis_severa: [false], observaciones: [''] });
+  readonly form = this.fb.nonNullable.group({ cedula: ['', [requiredTrim(), ecuadorianCedula()]], paciente_id: ['', Validators.required], historia_id: [''], tipo: ['inicial' as 'inicial' | 'evolucion', [Validators.required, allowedValues(['inicial', 'evolucion'] as const)]], estado: ['activo' as EstadoRegistro, [Validators.required, allowedValues(['activo', 'completado', 'anulado'] as const)]], observaciones: ['', [notBlankOptional(), maxTrimLength(500)]] });
+  readonly detailForm = this.fb.nonNullable.group({ pieza: [11, [Validators.required, integerMin(11)]], superficie: ['', [notBlankOptional(), maxTrimLength(40)]], movilidad: [0, [Validators.min(0), Validators.max(3)]], recesion: [0, [Validators.min(0), Validators.max(9)]], notas: ['', [notBlankOptional(), maxTrimLength(300)]] });
+  readonly cpoForm = this.fb.nonNullable.group({ cariadas: [0, [integerMin(0)]], perdidas: [0, [integerMin(0)]], obturadas: [0, [integerMin(0)]], ceo: [0, [integerMin(0)]], total: [0, [integerMin(0)]], observaciones: ['', [notBlankOptional(), maxTrimLength(300)]] });
+  readonly indicadoresForm = this.fb.nonNullable.group({ higiene_placa: [false], higiene_calculo: [false], higiene_gingivitis: [false], periodontal_leve: [false], periodontal_moderada: [false], periodontal_severa: [false], oclusion_clase_i: [false], oclusion_clase_ii: [false], oclusion_clase_iii: [false], fluorosis_leve: [false], fluorosis_moderada: [false], fluorosis_severa: [false], observaciones: ['', [notBlankOptional(), maxTrimLength(300)]] });
   readonly findings = [
     { key: 'caries' as const, label: 'Caries', color: '#ef4444', description: 'Presencia de lesión cariosa' },
     { key: 'restauracion' as const, label: 'Restauración', color: '#3b82f6', description: 'Pieza restaurada' },
@@ -114,7 +125,9 @@ export class OdontogramaComponent implements OnInit {
 
   async select(item: Odontograma): Promise<void> {
     this.selectedId.set(item.id);
-    this.form.patchValue({ paciente_id: item.paciente_id, historia_id: item.historia_id ?? '', tipo: item.tipo, estado: item.estado, observaciones: item.observaciones ?? '' });
+    const pacienteLabel = this.pacientesPorId().get(item.paciente_id) ?? '';
+    const cedula = pacienteLabel.match(/\((\d{10})\)$/)?.[1] ?? '';
+    this.form.patchValue({ cedula, paciente_id: item.paciente_id, historia_id: item.historia_id ?? '', tipo: item.tipo, estado: item.estado, observaciones: item.observaciones ?? '' });
     await this.loadDetails(item.id);
     await this.loadCpoManual(item.id);
     await this.loadIndicadores(item.historia_id ?? '');
@@ -139,11 +152,21 @@ export class OdontogramaComponent implements OnInit {
     this.cpoForm.reset({ cariadas: 0, perdidas: 0, obturadas: 0, ceo: 0, total: 0, observaciones: '' });
     this.indicadoresForm.reset({ higiene_placa: false, higiene_calculo: false, higiene_gingivitis: false, periodontal_leve: false, periodontal_moderada: false, periodontal_severa: false, oclusion_clase_i: false, oclusion_clase_ii: false, oclusion_clase_iii: false, fluorosis_leve: false, fluorosis_moderada: false, fluorosis_severa: false, observaciones: '' });
     this.detailForm.reset({ pieza: 11, superficie: '', movilidad: 0, recesion: 0, notas: '' });
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
+    this.detailForm.markAsPristine();
+    this.detailForm.markAsUntouched();
+    this.cpoForm.markAsPristine();
+    this.cpoForm.markAsUntouched();
+    this.indicadoresForm.markAsPristine();
+    this.indicadoresForm.markAsUntouched();
     this.pacienteInfo.set(null);
     this.pacienteError.set(null);
   }
 
   async save(): Promise<void> {
+    if (this.loading()) { return; }
+    this.normalizeMainForm();
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     const raw = this.form.getRawValue();
     if (!raw.paciente_id) {
@@ -153,7 +176,7 @@ export class OdontogramaComponent implements OnInit {
 
     try {
       const { historiaId, odontogramaId } = await this.ensureContext();
-      const payload: OdontogramaInsert = { paciente_id: raw.paciente_id, historia_id: historiaId, tipo: raw.tipo, estado: raw.estado, observaciones: raw.observaciones || null };
+      const payload: OdontogramaInsert = { paciente_id: raw.paciente_id, historia_id: historiaId, tipo: raw.tipo, estado: raw.estado, observaciones: emptyToNull(raw.observaciones) };
       const saved = await this.odontogramaService.update(odontogramaId, payload);
       this.selectedId.set(saved.id);
       this.form.patchValue({ historia_id: historiaId });
@@ -169,19 +192,28 @@ export class OdontogramaComponent implements OnInit {
 
   async saveDetail(pieza?: number): Promise<void> {
     try {
+      this.normalizeDetailForm();
+      if (this.detailForm.invalid) { this.detailForm.markAllAsTouched(); return; }
       const { odontogramaId } = await this.ensureContext();
       const raw = this.detailForm.getRawValue();
     const selectedPieza = pieza ?? raw.pieza;
+    if (!this.piezas.includes(selectedPieza)) {
+      this.toast.error('Seleccione una pieza dental válida.');
+      return;
+    }
+    if (this.currentDetail(selectedPieza) && !window.confirm('Esta pieza ya tiene un hallazgo. ¿Desea sobrescribirlo?')) {
+      return;
+    }
     this.selectedTooth.set(selectedPieza);
     this.detailForm.patchValue({ pieza: selectedPieza });
     const payload: OdontogramaDetalleInsert = {
       odontograma_id: odontogramaId,
       pieza: selectedPieza,
-      superficie: raw.superficie || null,
+      superficie: emptyToNull(raw.superficie),
       condicion: this.buildConditionValue(selectedPieza),
       movilidad: Number(raw.movilidad) || null,
       recesion: Number(raw.recesion) || null,
-      notas: raw.notas || null
+      notas: emptyToNull(raw.notas)
     };
 
       await this.odontogramaService.guardarDetalle(payload);
@@ -193,6 +225,9 @@ export class OdontogramaComponent implements OnInit {
   }
 
   async removeDetail(detalle: OdontogramaDetalle): Promise<void> {
+    if (!window.confirm('¿Está seguro de eliminar este hallazgo?')) {
+      return;
+    }
     try {
       await this.odontogramaService.eliminarDetalle(detalle.id);
       const id = this.selectedId();
@@ -202,7 +237,7 @@ export class OdontogramaComponent implements OnInit {
   }
 
   async buscarPacientePorCedula(): Promise<void> {
-    const cedula = this.form.controls.cedula.value.trim();
+    const cedula = normalizeWhitespace(this.form.controls.cedula.value);
     if (!cedula) {
       this.pacienteInfo.set(null);
       this.pacienteError.set(null);
@@ -256,12 +291,16 @@ export class OdontogramaComponent implements OnInit {
   }
 
   async remove(item: Odontograma): Promise<void> {
+    if (!window.confirm('¿Está seguro de eliminar este odontograma?')) {
+      return;
+    }
     try { await this.odontogramaService.delete(item.id); this.toast.success('Odontograma eliminado'); this.clear(); await this.load(); }
     catch (error) { this.toast.error(error instanceof Error ? error.message : 'No se pudo eliminar odontograma'); }
   }
 
   async saveCpoManual(): Promise<void> {
     try {
+      if (this.cpoForm.invalid) { this.cpoForm.markAllAsTouched(); return; }
       const { odontogramaId } = await this.ensureContext();
       const raw = this.cpoForm.getRawValue();
       const saved = await this.odontogramaService.guardarCpoManual(odontogramaId, {
@@ -270,7 +309,7 @@ export class OdontogramaComponent implements OnInit {
         obturadas: Number(raw.obturadas) || 0,
         ceo: Number(raw.ceo) || 0,
         total: Number(raw.total) || 0,
-        observaciones: raw.observaciones || null
+        observaciones: emptyToNull(raw.observaciones)
       });
       this.cpoManual.set(saved);
       this.toast.success('Índices CPO guardados');
@@ -279,6 +318,7 @@ export class OdontogramaComponent implements OnInit {
 
   async saveIndicadores(): Promise<void> {
     try {
+      if (this.indicadoresForm.invalid) { this.indicadoresForm.markAllAsTouched(); return; }
       const { historiaId } = await this.ensureContext();
       const raw = this.indicadoresForm.getRawValue();
       const saved = await this.odontogramaService.guardarIndicadores(historiaId, {
@@ -294,7 +334,7 @@ export class OdontogramaComponent implements OnInit {
         fluorosis_leve: Boolean(raw.fluorosis_leve),
         fluorosis_moderada: Boolean(raw.fluorosis_moderada),
         fluorosis_severa: Boolean(raw.fluorosis_severa),
-        observaciones: raw.observaciones || null
+        observaciones: emptyToNull(raw.observaciones)
       });
       this.indicadores.set(saved);
       this.toast.success('Indicadores guardados');
@@ -438,5 +478,21 @@ export class OdontogramaComponent implements OnInit {
     if ([41,42,43,44,45,46,47,48].includes(pieza)) { return 4; }
     if ([55,54,53,52,51,61,62,63,64,65,85,84,83,82,81,71,72,73,74,75].includes(pieza)) { return 5; }
     return 5;
+  }
+
+  private normalizeMainForm(): void {
+    const raw = this.form.getRawValue();
+    this.form.patchValue({
+      cedula: normalizeWhitespace(raw.cedula),
+      observaciones: normalizeWhitespace(raw.observaciones)
+    }, { emitEvent: false });
+  }
+
+  private normalizeDetailForm(): void {
+    const raw = this.detailForm.getRawValue();
+    this.detailForm.patchValue({
+      superficie: normalizeWhitespace(raw.superficie),
+      notas: normalizeWhitespace(raw.notas)
+    }, { emitEvent: false });
   }
 }

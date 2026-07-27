@@ -12,11 +12,26 @@ import {
   Seguro
 } from '../models/interfaces/database.types';
 import { buildStoragePath } from '../../shared/utils/file-path';
+import {
+  isValidEcuadorianCedula,
+  normalizeEmail,
+  normalizeName,
+  normalizeWhitespace,
+  TEXT_PATTERN
+} from '../../shared/utils/validation.utils';
 
 @Injectable({ providedIn: 'root' })
 export class PacientesService extends BaseRepository<Paciente, PacienteInsert, PacienteUpdate> {
   constructor() {
     super('pacientes', 'apellidos');
+  }
+
+  override async create(payload: PacienteInsert): Promise<Paciente> {
+    return super.create(this.validatePayload(payload) as PacienteInsert);
+  }
+
+  override async update(id: string, payload: PacienteUpdate): Promise<Paciente> {
+    return super.update(id, this.validatePayload(payload) as PacienteUpdate);
   }
 
   async search(term: string): Promise<Paciente[]> {
@@ -226,5 +241,31 @@ export class PacientesService extends BaseRepository<Paciente, PacienteInsert, P
     if (error) {
       throw new Error(error.message);
     }
+  }
+
+  private validatePayload<T extends PacienteInsert | PacienteUpdate>(payload: T): T {
+    const next = { ...payload } as Record<string, any>;
+    if ('cedula' in next) {
+      next['cedula'] = normalizeWhitespace(next['cedula']);
+      if (!next['cedula']) { throw new Error('La cédula es obligatoria.'); }
+      if (!isValidEcuadorianCedula(next['cedula'])) { throw new Error('La cédula ingresada no es válida.'); }
+    }
+    for (const field of ['nombres', 'apellidos']) {
+      if (field in next) {
+        next[field] = normalizeName(next[field]);
+        if (!next[field]) { throw new Error(field === 'nombres' ? 'Los nombres son obligatorios.' : 'Los apellidos son obligatorios.'); }
+        if (!TEXT_PATTERN.test(next[field])) { throw new Error('Este campo solo puede contener letras.'); }
+      }
+    }
+    if ('email' in next && next['email']) {
+      next['email'] = normalizeEmail(next['email']);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(next['email'])) { throw new Error('Ingrese un correo electrónico válido.'); }
+    }
+    for (const field of ['telefono', 'telefono_emergencia']) {
+      if (field in next && next[field] && /\D/.test(next[field])) {
+        throw new Error('El teléfono solo puede contener números.');
+      }
+    }
+    return next as T;
   }
 }

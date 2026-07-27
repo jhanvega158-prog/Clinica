@@ -4,11 +4,21 @@ import { DocumentoClinico, EstadoRegistro, HistoriaClinica, HistoriaClinicaInser
 import { HistoriaService } from '../../core/services/historia.service';
 import { PacientesService } from '../../core/services/pacientes.service';
 import { ToastService } from '../../core/services/toast.service';
+import { ValidationFeedbackDirective } from '../../shared/directives/validation-feedback.directive';
+import {
+  allowedValues,
+  ecuadorianCedula,
+  emptyToNull,
+  maxTrimLength,
+  normalizeWhitespace,
+  notBlankOptional,
+  requiredTrim
+} from '../../shared/utils/validation.utils';
 
 @Component({
   selector: 'app-historia-clinica',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, ValidationFeedbackDirective],
   templateUrl: './historia-clinica.component.html'
 })
 export class HistoriaClinicaComponent implements OnInit {
@@ -25,18 +35,18 @@ export class HistoriaClinicaComponent implements OnInit {
   readonly pacienteError = signal<string | null>(null);
   readonly buscandoPaciente = signal(false);
   readonly form = this.fb.nonNullable.group({
-    cedula: ['', Validators.required],
+    cedula: ['', [requiredTrim(), ecuadorianCedula()]],
     paciente_id: ['', Validators.required],
     usuario_id: [''],
-    motivo_consulta: [''],
-    enfermedad_actual: [''],
-    seguros: [''],
-    signos_vitales: [''],
-    examen_estomatognatico: [''],
-    diagnosticos: [''],
-    plan_tratamiento: [''],
-    observaciones: [''],
-    estado: ['activo' as EstadoRegistro, Validators.required]
+    motivo_consulta: ['', [requiredTrim(), maxTrimLength(500)]],
+    enfermedad_actual: ['', [notBlankOptional(), maxTrimLength(1000)]],
+    seguros: ['', [notBlankOptional(), maxTrimLength(300)]],
+    signos_vitales: ['', [notBlankOptional(), maxTrimLength(600)]],
+    examen_estomatognatico: ['', [notBlankOptional(), maxTrimLength(1200)]],
+    diagnosticos: ['', [notBlankOptional(), maxTrimLength(1000)]],
+    plan_tratamiento: ['', [notBlankOptional(), maxTrimLength(1200)]],
+    observaciones: ['', [notBlankOptional(), maxTrimLength(500)]],
+    estado: ['activo' as EstadoRegistro, [Validators.required, allowedValues(['activo', 'pendiente', 'completado', 'anulado'] as const)]]
   });
 
   ngOnInit(): void { void this.load(); }
@@ -56,7 +66,10 @@ export class HistoriaClinicaComponent implements OnInit {
 
   edit(historia: HistoriaClinica): void {
     this.selectedId.set(historia.id);
+    const pacienteLabel = this.pacientesPorId().get(historia.paciente_id) ?? '';
+    const cedula = pacienteLabel.match(/\((\d{10})\)$/)?.[1] ?? '';
     this.form.patchValue({
+      cedula,
       paciente_id: historia.paciente_id,
       usuario_id: historia.usuario_id ?? '',
       motivo_consulta: historia.motivo_consulta ?? '',
@@ -76,11 +89,16 @@ export class HistoriaClinicaComponent implements OnInit {
     this.selectedId.set(null);
     this.documentos.set([]);
     this.form.reset({ cedula: '', paciente_id: '', usuario_id: '', motivo_consulta: '', enfermedad_actual: '', seguros: '', signos_vitales: '', examen_estomatognatico: '', diagnosticos: '', plan_tratamiento: '', observaciones: '', estado: 'activo' });
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
     this.pacienteInfo.set(null);
     this.pacienteError.set(null);
   }
 
   async save(): Promise<void> {
+    if (this.loading()) { return; }
+    this.normalizeForm();
+    this.validateEstadoClinico();
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     const raw = this.form.getRawValue();
     if (!raw.paciente_id) {
@@ -89,16 +107,16 @@ export class HistoriaClinicaComponent implements OnInit {
     }
     const payload: HistoriaClinicaInsert = {
       paciente_id: raw.paciente_id,
-      usuario_id: raw.usuario_id || null,
-      motivo_consulta: raw.motivo_consulta || null,
-      enfermedad_actual: raw.enfermedad_actual || null,
+      usuario_id: emptyToNull(raw.usuario_id),
+      motivo_consulta: normalizeWhitespace(raw.motivo_consulta),
+      enfermedad_actual: emptyToNull(raw.enfermedad_actual),
       antecedentes_personales: null,
       antecedentes_familiares: null,
       signos_vitales: this.parseJson(raw.signos_vitales),
       examen_estomatognatico: this.parseJson(raw.examen_estomatognatico),
       diagnosticos: this.parseJson(raw.diagnosticos),
-      plan_tratamiento: raw.plan_tratamiento || null,
-      observaciones: raw.observaciones || null,
+      plan_tratamiento: emptyToNull(raw.plan_tratamiento),
+      observaciones: emptyToNull(raw.observaciones),
       estado: raw.estado
     };
     try {
@@ -114,12 +132,15 @@ export class HistoriaClinicaComponent implements OnInit {
   }
 
   async remove(historia: HistoriaClinica): Promise<void> {
+    if (!window.confirm('¿Está seguro de eliminar esta historia clínica?')) {
+      return;
+    }
     try { await this.historiaService.delete(historia.id); this.toast.success('Historia eliminada'); await this.load(); }
     catch (error) { this.toast.error(error instanceof Error ? error.message : 'No se pudo eliminar historia'); }
   }
 
   async buscarPacientePorCedula(): Promise<void> {
-    const cedula = this.form.controls.cedula.value.trim();
+    const cedula = normalizeWhitespace(this.form.controls.cedula.value);
     if (!cedula) {
       this.pacienteInfo.set(null);
       this.pacienteError.set(null);
@@ -229,5 +250,32 @@ export class HistoriaClinicaComponent implements OnInit {
 
   private stringifyJson(value: Json | null): string {
     return value === null ? '' : JSON.stringify(value, null, 2);
+  }
+
+  private normalizeForm(): void {
+    const raw = this.form.getRawValue();
+    this.form.patchValue({
+      cedula: normalizeWhitespace(raw.cedula),
+      usuario_id: normalizeWhitespace(raw.usuario_id),
+      motivo_consulta: normalizeWhitespace(raw.motivo_consulta),
+      enfermedad_actual: normalizeWhitespace(raw.enfermedad_actual),
+      seguros: normalizeWhitespace(raw.seguros),
+      signos_vitales: normalizeWhitespace(raw.signos_vitales),
+      examen_estomatognatico: normalizeWhitespace(raw.examen_estomatognatico),
+      diagnosticos: normalizeWhitespace(raw.diagnosticos),
+      plan_tratamiento: normalizeWhitespace(raw.plan_tratamiento),
+      observaciones: normalizeWhitespace(raw.observaciones)
+    }, { emitEvent: false });
+  }
+
+  private validateEstadoClinico(): void {
+    const diagnosticos = this.form.controls.diagnosticos;
+    const errors = { ...(diagnosticos.errors ?? {}) };
+    if (this.form.controls.estado.value === 'completado' && !normalizeWhitespace(diagnosticos.value)) {
+      errors['required'] = true;
+    } else {
+      delete errors['required'];
+    }
+    diagnosticos.setErrors(Object.keys(errors).length ? errors : null);
   }
 }

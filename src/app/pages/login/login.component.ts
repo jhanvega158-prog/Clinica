@@ -3,11 +3,13 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { AutofocusDirective } from '../../shared/directives/autofocus.directive';
+import { ValidationFeedbackDirective } from '../../shared/directives/validation-feedback.directive';
+import { emailTrim, normalizeWhitespace, requiredTrim } from '../../shared/utils/validation.utils';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [AutofocusDirective, ReactiveFormsModule],
+  imports: [AutofocusDirective, ReactiveFormsModule, ValidationFeedbackDirective],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css'
 })
@@ -17,11 +19,19 @@ export class LoginComponent {
   private readonly toast = inject(ToastService);
   readonly recoveryMode = signal(false);
   readonly form = this.fb.nonNullable.group({
-    email: ['admin', [Validators.required]],
+    email: ['admin', [requiredTrim()]],
     password: ['admin', [Validators.required, Validators.minLength(4)]]
   });
 
   async submit(): Promise<void> {
+    if (this.auth.loading()) {
+      return;
+    }
+    const email = normalizeWhitespace(this.form.controls.email.value);
+    this.form.controls.email.setValue(email, { emitEvent: false });
+    if (this.recoveryMode()) {
+      this.form.controls.email.setErrors(emailTrim()(this.form.controls.email));
+    }
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;

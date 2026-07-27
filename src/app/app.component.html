@@ -2,17 +2,19 @@
   <div class="app-shell">
     <aside [class.open]="menuOpen()">
       <div class="brand">
-        <span class="brand-mark">OC</span>
+        <span class="brand-mark">VD</span>
         <div>
-          <strong>OdontoCare</strong>
-          <small>Gestion clinica dental</small>
+          <strong>VitaDenti</strong>
+          <small>Centro Integral Odontológico</small>
         </div>
       </div>
 
       <nav>
         @for (link of links; track link.path) {
           <a [routerLink]="link.path" routerLinkActive="active" (click)="menuOpen.set(false)">
-            <span>{{ link.icon }}</span>
+            <span class="nav-icon">
+              <svg [lucideIcon]="link.icon" size="20"></svg>
+            </span>
             {{ link.label }}
           </a>
         }
@@ -24,7 +26,10 @@
           <strong>{{ profileName() }}</strong>
           <small>{{ auth.profile()?.rol || 'Usuario' }}</small>
         </div>
-        <button type="button" (click)="logout()" title="Cerrar sesion">Salir</button>
+        <button type="button" (click)="logout()" title="Cerrar sesion">
+          <svg [lucideIcon]="logOutIcon" size="20"></svg>
+          Salir
+        </button>
       </div>
     </aside>
 
@@ -32,7 +37,7 @@
       <header>
         <button type="button" class="menu" (click)="toggleMenu()">Menu</button>
         <div>
-          <strong>Clinica Dental</strong>
+          <strong>VitaDenti</strong>
           <small>{{ profileName() }}</small>
         </div>
         <button type="button" class="primary" routerLink="/pacientes">Nuevo paciente</button>

@@ -5,11 +5,23 @@ import { PacientesService } from '../../core/services/pacientes.service';
 import { ToastService } from '../../core/services/toast.service';
 import { TratamientosService } from '../../core/services/tratamientos.service';
 import { todayIso } from '../../shared/utils/date-utils';
+import { ValidationFeedbackDirective } from '../../shared/directives/validation-feedback.directive';
+import {
+  allowedValues,
+  ecuadorianCedula,
+  emptyToNull,
+  maxTrimLength,
+  nonNegativeNumber,
+  normalizeWhitespace,
+  notBlankOptional,
+  notFutureDate,
+  requiredTrim
+} from '../../shared/utils/validation.utils';
 
 @Component({
   selector: 'app-tratamientos',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, ValidationFeedbackDirective],
   templateUrl: './tratamientos.component.html'
 })
 export class TratamientosComponent implements OnInit {
@@ -25,16 +37,16 @@ export class TratamientosComponent implements OnInit {
   readonly pacienteError = signal<string | null>(null);
   readonly buscandoPaciente = signal(false);
   readonly form = this.fb.nonNullable.group({
-    cedula: ['', Validators.required],
+    cedula: ['', [requiredTrim(), ecuadorianCedula()]],
     paciente_id: ['', Validators.required],
     historia_id: [''],
-    diagnostico: ['', Validators.required],
-    procedimiento: ['', Validators.required],
-    prescripcion: [''],
-    fecha: [todayIso(), Validators.required],
-    estado: ['pendiente' as EstadoRegistro, Validators.required],
-    costo: [0],
-    notas: ['']
+    diagnostico: ['', [requiredTrim(), maxTrimLength(400)]],
+    procedimiento: ['', [requiredTrim(), maxTrimLength(600)]],
+    prescripcion: ['', [notBlankOptional(), maxTrimLength(500)]],
+    fecha: [todayIso(), [Validators.required, notFutureDate()]],
+    estado: ['pendiente' as EstadoRegistro, [Validators.required, allowedValues(['pendiente', 'activo', 'completado', 'anulado'] as const)]],
+    costo: [0, [nonNegativeNumber()]],
+    notas: ['', [notBlankOptional(), maxTrimLength(300)]]
   });
 
   ngOnInit(): void { void this.load(); }
@@ -54,24 +66,30 @@ export class TratamientosComponent implements OnInit {
 
   edit(item: Tratamiento): void {
     this.selectedId.set(item.id);
-    this.form.patchValue({ ...item, historia_id: item.historia_id ?? '', prescripcion: item.prescripcion ?? '', costo: item.costo ?? 0, notas: item.notas ?? '' });
+    const pacienteLabel = this.pacientesPorId().get(item.paciente_id) ?? '';
+    const cedula = pacienteLabel.match(/\((\d{10})\)$/)?.[1] ?? '';
+    this.form.patchValue({ ...item, cedula, historia_id: item.historia_id ?? '', prescripcion: item.prescripcion ?? '', costo: item.costo ?? 0, notas: item.notas ?? '' });
   }
 
   clear(): void {
     this.selectedId.set(null);
     this.form.reset({ cedula: '', paciente_id: '', historia_id: '', diagnostico: '', procedimiento: '', prescripcion: '', fecha: todayIso(), estado: 'pendiente', costo: 0, notas: '' });
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
     this.pacienteInfo.set(null);
     this.pacienteError.set(null);
   }
 
   async save(): Promise<void> {
+    if (this.loading()) { return; }
+    this.normalizeForm();
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     const raw = this.form.getRawValue();
     if (!raw.paciente_id) {
       this.pacienteError.set('Busca un paciente por cédula antes de guardar el tratamiento.');
       return;
     }
-    const payload: TratamientoInsert = { paciente_id: raw.paciente_id, historia_id: raw.historia_id || null, diagnostico: raw.diagnostico, procedimiento: raw.procedimiento, prescripcion: raw.prescripcion || null, fecha: raw.fecha, estado: raw.estado, costo: Number(raw.costo) || null, notas: raw.notas || null };
+    const payload: TratamientoInsert = { paciente_id: raw.paciente_id, historia_id: emptyToNull(raw.historia_id), diagnostico: normalizeWhitespace(raw.diagnostico), procedimiento: normalizeWhitespace(raw.procedimiento), prescripcion: emptyToNull(raw.prescripcion), fecha: raw.fecha, estado: raw.estado, costo: Number(raw.costo) || null, notas: emptyToNull(raw.notas) };
     try {
       const id = this.selectedId();
       id ? await this.tratamientosService.update(id, payload) : await this.tratamientosService.create(payload);
@@ -82,7 +100,7 @@ export class TratamientosComponent implements OnInit {
   }
 
   async buscarPacientePorCedula(): Promise<void> {
-    const cedula = this.form.controls.cedula.value.trim();
+    const cedula = normalizeWhitespace(this.form.controls.cedula.value);
     if (!cedula) {
       this.pacienteInfo.set(null);
       this.pacienteError.set(null);
@@ -126,7 +144,22 @@ export class TratamientosComponent implements OnInit {
   }
 
   async remove(item: Tratamiento): Promise<void> {
+    if (!window.confirm('¿Está seguro de eliminar este tratamiento?')) {
+      return;
+    }
     try { await this.tratamientosService.delete(item.id); this.toast.success('Tratamiento eliminado'); await this.load(); }
     catch (error) { this.toast.error(error instanceof Error ? error.message : 'No se pudo eliminar tratamiento'); }
+  }
+
+  private normalizeForm(): void {
+    const raw = this.form.getRawValue();
+    this.form.patchValue({
+      cedula: normalizeWhitespace(raw.cedula),
+      historia_id: normalizeWhitespace(raw.historia_id),
+      diagnostico: normalizeWhitespace(raw.diagnostico),
+      procedimiento: normalizeWhitespace(raw.procedimiento),
+      prescripcion: normalizeWhitespace(raw.prescripcion),
+      notas: normalizeWhitespace(raw.notas)
+    }, { emitEvent: false });
   }
 }

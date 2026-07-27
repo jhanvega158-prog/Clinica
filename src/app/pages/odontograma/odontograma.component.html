@@ -1,4 +1,4 @@
-<div class="page-title"><div><h1>Odontograma clínico</h1><p>Vista interactiva por cuadrantes, hallazgos dinámicos y estado persistido en Supabase.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button></div></div>
+<div class="page-title"><div><h1>Odontograma</h1><p>Representación gráfica de la salud bucodental.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button></div></div>
 
 <form class="panel" [formGroup]="form" (ngSubmit)="save()">
   <h2>{{ selectedId() ? 'Editar odontograma' : 'Nuevo odontograma' }}</h2>
@@ -102,7 +102,7 @@
           <label class="field">Movilidad<input type="number" min="0" max="3" formControlName="movilidad"></label>
           <label class="field">Recesión<input type="number" min="0" max="9" formControlName="recesion"></label>
           <label class="field">Notas<input formControlName="notas"></label>
-          <div class="actions"><button class="btn primary" type="button" (click)="saveDetail(pieza)">Guardar pieza</button></div>
+          <div class="actions"><button class="btn primary" type="button" (click)="saveDetail(pieza)" [disabled]="loading()">Guardar pieza</button></div>
         </form>
       } @else {
         <p class="empty">Seleccione una pieza para ver su información clínica.</p>
@@ -124,7 +124,7 @@
 
 <section class="panel">
   <h2>Piezas examinadas</h2>
-  <p class="helper-text">Marque las piezas examinadas. Los cambios se guardan automáticamente en Supabase.</p>
+  <p class="helper-text">Marque las piezas examinadas. Los cambios se guardan automáticamente.</p>
   <div class="msp-table">
     @for (row of piezasExaminadasTabla; track row[0]) {
       <div class="msp-row">
@@ -148,7 +148,7 @@
     <label class="field">CEO<input type="number" formControlName="ceo"></label>
     <label class="field">Total<input type="number" formControlName="total"></label>
     <label class="field">Observaciones<input formControlName="observaciones"></label>
-    <div class="actions"><button class="btn primary" type="submit">Guardar CPO</button></div>
+    <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar CPO</button></div>
   </form>
 </section>
 <section class="panel">
@@ -167,7 +167,7 @@
     <label class="field"><input type="checkbox" formControlName="fluorosis_moderada"> Fluorosis moderada</label>
     <label class="field"><input type="checkbox" formControlName="fluorosis_severa"> Fluorosis severa</label>
     <label class="field span-2">Observaciones<textarea rows="2" formControlName="observaciones"></textarea></label>
-    <div class="actions"><button class="btn primary" type="submit">Guardar indicadores</button></div>
+    <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar indicadores</button></div>
   </form>
 </section>
 <section class="cards">

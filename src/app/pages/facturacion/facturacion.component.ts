@@ -5,11 +5,24 @@ import { FacturacionService } from '../../core/services/facturacion.service';
 import { PacientesService } from '../../core/services/pacientes.service';
 import { ToastService } from '../../core/services/toast.service';
 import { todayIso } from '../../shared/utils/date-utils';
+import { ValidationFeedbackDirective } from '../../shared/directives/validation-feedback.directive';
+import {
+  allowedValues,
+  discountNotGreaterThanSubtotal,
+  ecuadorianCedula,
+  emptyToNull,
+  maxTrimLength,
+  nonNegativeNumber,
+  normalizeWhitespace,
+  notBlankOptional,
+  notFutureDate,
+  requiredTrim
+} from '../../shared/utils/validation.utils';
 
 @Component({
   selector: 'app-facturacion',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, ValidationFeedbackDirective],
   templateUrl: './facturacion.component.html'
 })
 export class FacturacionComponent implements OnInit {
@@ -25,16 +38,16 @@ export class FacturacionComponent implements OnInit {
   readonly pacienteError = signal<string | null>(null);
   readonly buscandoPaciente = signal(false);
   readonly form = this.fb.nonNullable.group({
-    cedula: ['', Validators.required],
+    cedula: ['', [requiredTrim(), ecuadorianCedula()]],
     paciente_id: ['', Validators.required],
-    numero: ['', Validators.required],
-    fecha: [todayIso(), Validators.required],
-    subtotal: [0, Validators.required],
-    impuesto: [0],
-    descuento: [0],
-    estado: ['pendiente' as EstadoRegistro, Validators.required],
-    observaciones: ['']
-  });
+    numero: ['', [requiredTrim(), maxTrimLength(40)]],
+    fecha: [todayIso(), [Validators.required, notFutureDate()]],
+    subtotal: [0, [Validators.required, nonNegativeNumber()]],
+    impuesto: [0, [nonNegativeNumber()]],
+    descuento: [0, [nonNegativeNumber()]],
+    estado: ['pendiente' as EstadoRegistro, [Validators.required, allowedValues(['pendiente', 'completado', 'anulado'] as const)]],
+    observaciones: ['', [notBlankOptional(), maxTrimLength(300)]]
+  }, { validators: [discountNotGreaterThanSubtotal()] });
 
   ngOnInit(): void { void this.load(); }
 
@@ -53,12 +66,16 @@ export class FacturacionComponent implements OnInit {
 
   edit(factura: Factura): void {
     this.selectedId.set(factura.id);
-    this.form.patchValue({ ...factura, observaciones: factura.observaciones ?? '' });
+    const pacienteLabel = this.pacientesPorId().get(factura.paciente_id) ?? '';
+    const cedula = pacienteLabel.match(/\((\d{10})\)$/)?.[1] ?? '';
+    this.form.patchValue({ ...factura, cedula, observaciones: factura.observaciones ?? '' });
   }
 
   clear(): void {
     this.selectedId.set(null);
     this.form.reset({ cedula: '', paciente_id: '', numero: '', fecha: todayIso(), subtotal: 0, impuesto: 0, descuento: 0, estado: 'pendiente', observaciones: '' });
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
     this.pacienteInfo.set(null);
     this.pacienteError.set(null);
   }
@@ -69,13 +86,16 @@ export class FacturacionComponent implements OnInit {
   }
 
   async save(): Promise<void> {
+    if (this.loading()) { return; }
+    this.normalizeForm();
+    this.validateDuplicados();
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     const raw = this.form.getRawValue();
     if (!raw.paciente_id) {
       this.pacienteError.set('Busca un paciente por cédula antes de guardar la factura.');
       return;
     }
-    const payload: FacturaInsert = { paciente_id: raw.paciente_id, numero: raw.numero, fecha: raw.fecha, subtotal: Number(raw.subtotal) || 0, impuesto: Number(raw.impuesto) || 0, descuento: Number(raw.descuento) || 0, total: this.total(), estado: raw.estado, observaciones: raw.observaciones || null };
+    const payload: FacturaInsert = { paciente_id: raw.paciente_id, numero: normalizeWhitespace(raw.numero), fecha: raw.fecha, subtotal: Number(raw.subtotal) || 0, impuesto: Number(raw.impuesto) || 0, descuento: Number(raw.descuento) || 0, total: this.total(), estado: raw.estado, observaciones: emptyToNull(raw.observaciones) };
     try {
       const id = this.selectedId();
       id ? await this.facturacionService.update(id, payload) : await this.facturacionService.create(payload);
@@ -86,7 +106,7 @@ export class FacturacionComponent implements OnInit {
   }
 
   async buscarPacientePorCedula(): Promise<void> {
-    const cedula = this.form.controls.cedula.value.trim();
+    const cedula = normalizeWhitespace(this.form.controls.cedula.value);
     if (!cedula) {
       this.pacienteInfo.set(null);
       this.pacienteError.set(null);
@@ -130,11 +150,37 @@ export class FacturacionComponent implements OnInit {
   }
 
   async remove(factura: Factura): Promise<void> {
+    if (!window.confirm('¿Está seguro de eliminar esta factura?')) {
+      return;
+    }
     try { await this.facturacionService.delete(factura.id); this.toast.success('Factura eliminada'); await this.load(); }
     catch (error) { this.toast.error(error instanceof Error ? error.message : 'No se pudo eliminar factura'); }
   }
 
   print(): void {
     window.print();
+  }
+
+  private normalizeForm(): void {
+    const raw = this.form.getRawValue();
+    this.form.patchValue({
+      cedula: normalizeWhitespace(raw.cedula),
+      numero: normalizeWhitespace(raw.numero),
+      observaciones: normalizeWhitespace(raw.observaciones)
+    }, { emitEvent: false });
+  }
+
+  private validateDuplicados(): void {
+    const numero = normalizeWhitespace(this.form.controls.numero.value);
+    const id = this.selectedId();
+    const duplicado = this.facturas().some((factura) => factura.numero === numero && factura.id !== id);
+    const control = this.form.controls.numero;
+    const errors = { ...(control.errors ?? {}) };
+    if (duplicado) {
+      errors['duplicateInvoice'] = true;
+    } else {
+      delete errors['duplicateInvoice'];
+    }
+    control.setErrors(Object.keys(errors).length ? errors : null);
   }
 }

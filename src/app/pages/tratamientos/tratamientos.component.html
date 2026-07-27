@@ -1,4 +1,4 @@
-<div class="page-title"><div><h1>Tratamientos</h1><p>Plan terapeutico y sesiones clinicas.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button></div></div>
+<div class="page-title"><div><h1>Tratamientos</h1><p>Plan terapéutico y sesiones clínicas.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button></div></div>
 <form class="panel" [formGroup]="form" (ngSubmit)="save()">
   <h2>{{ selectedId() ? 'Editar tratamiento' : 'Nuevo tratamiento' }}</h2>
   <div class="grid">

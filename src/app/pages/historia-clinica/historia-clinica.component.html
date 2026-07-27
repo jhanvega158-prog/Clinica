@@ -1,4 +1,4 @@
-<div class="page-title"><div><h1>Historia clínica</h1><p>Anamnesis, seguros, documentos y cierre clínico.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nueva</button><button class="btn" type="button" (click)="load()">Actualizar</button><button class="btn primary" type="button" (click)="print()">Imprimir PDF</button></div></div>
+<div class="page-title"><div><h1>Historia Clínica</h1><p>Información médica y evolución de cada paciente.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nueva</button><button class="btn" type="button" (click)="load()">Actualizar</button><button class="btn primary" type="button" (click)="print()">Imprimir PDF</button></div></div>
 <form class="panel" [formGroup]="form" (ngSubmit)="save()">
   <h2>{{ selectedId() ? 'Editar historia' : 'Nueva historia' }}</h2>
   <div class="grid">
@@ -8,9 +8,9 @@
     <label class="field span-2">Motivo de consulta<textarea rows="2" formControlName="motivo_consulta"></textarea></label>
     <label class="field span-2">Enfermedad actual<textarea rows="2" formControlName="enfermedad_actual"></textarea></label>
     <label class="field span-2">Seguros<textarea rows="2" formControlName="seguros" placeholder="Separados por coma o salto de línea"></textarea></label>
-    <label class="field">Signos vitales JSON<textarea rows="4" formControlName="signos_vitales"></textarea></label>
-    <label class="field">Examen estomatognático JSON<textarea rows="4" formControlName="examen_estomatognatico"></textarea></label>
-    <label class="field span-2">Diagnósticos JSON<textarea rows="4" formControlName="diagnosticos"></textarea></label>
+    <label class="field">Signos vitales<textarea rows="4" formControlName="signos_vitales"></textarea></label>
+    <label class="field">Examen estomatognático<textarea rows="4" formControlName="examen_estomatognatico"></textarea></label>
+    <label class="field span-2">Diagnósticos<textarea rows="4" formControlName="diagnosticos"></textarea></label>
     <label class="field span-2">Plan de tratamiento<textarea rows="3" formControlName="plan_tratamiento"></textarea></label>
     <label class="field">Estado<select formControlName="estado"><option>activo</option><option>pendiente</option><option>completado</option><option>anulado</option></select></label>
     <label class="field">Observaciones<input formControlName="observaciones"></label>

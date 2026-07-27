@@ -6,11 +6,22 @@ import {
   HistoriaClinicaInsert,
   HistoriaClinicaUpdate
 } from '../models/interfaces/database.types';
+import { normalizeWhitespace } from '../../shared/utils/validation.utils';
 
 @Injectable({ providedIn: 'root' })
 export class HistoriaService extends BaseRepository<HistoriaClinica, HistoriaClinicaInsert, HistoriaClinicaUpdate> {
   constructor() {
     super('historias_clinicas');
+  }
+
+  override async create(payload: HistoriaClinicaInsert): Promise<HistoriaClinica> {
+    this.validatePayload(payload);
+    return super.create(payload);
+  }
+
+  override async update(id: string, payload: HistoriaClinicaUpdate): Promise<HistoriaClinica> {
+    this.validatePayload(payload);
+    return super.update(id, payload);
   }
 
   async porPaciente(pacienteId: string): Promise<HistoriaClinica[]> {
@@ -57,5 +68,17 @@ export class HistoriaService extends BaseRepository<HistoriaClinica, HistoriaCli
 
     this.throwIfError(createError);
     return created as HistoriaClinica;
+  }
+
+  private validatePayload(payload: HistoriaClinicaInsert | HistoriaClinicaUpdate): void {
+    if ('paciente_id' in payload && !payload.paciente_id) {
+      throw new Error('Seleccione un paciente.');
+    }
+    if ('motivo_consulta' in payload && !normalizeWhitespace(payload.motivo_consulta ?? '')) {
+      throw new Error('El motivo de consulta es obligatorio.');
+    }
+    if (payload.estado === 'completado' && !payload.diagnosticos) {
+      throw new Error('El diagnóstico es obligatorio.');
+    }
   }
 }

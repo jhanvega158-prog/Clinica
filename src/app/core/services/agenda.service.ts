@@ -8,6 +8,7 @@ import {
   EstadoRecordatorio,
   TipoRecordatorio
 } from '../models/interfaces/database.types';
+import { normalizeWhitespace } from '../../shared/utils/validation.utils';
 
 export interface AgendaCalendario extends Agenda {
   paciente_nombre: string;
@@ -32,6 +33,16 @@ export interface RecordatorioWhatsappInsert {
 export class AgendaService extends BaseRepository<Agenda, AgendaInsert, AgendaUpdate> {
   constructor() {
     super('agenda', 'fecha');
+  }
+
+  override async create(payload: AgendaInsert): Promise<Agenda> {
+    this.validatePayload(payload);
+    return super.create(payload);
+  }
+
+  override async update(id: string, payload: AgendaUpdate): Promise<Agenda> {
+    this.validatePayload(payload);
+    return super.update(id, payload);
   }
 
   async porPaciente(pacienteId: string): Promise<Agenda[]> {
@@ -153,5 +164,26 @@ export class AgendaService extends BaseRepository<Agenda, AgendaInsert, AgendaUp
       return 0;
     }
     return hours * 60 + minutes;
+  }
+
+  private validatePayload(payload: AgendaInsert | AgendaUpdate): void {
+    if ('paciente_id' in payload && !payload.paciente_id) {
+      throw new Error('Seleccione un paciente.');
+    }
+    if ('fecha' in payload && !payload.fecha) {
+      throw new Error('La fecha es obligatoria.');
+    }
+    if ('hora_inicio' in payload && !payload.hora_inicio) {
+      throw new Error('La hora de inicio es obligatoria.');
+    }
+    if ('hora_inicio' in payload && 'hora_fin' in payload && payload.hora_inicio && payload.hora_fin && this.timeToMinutes(payload.hora_fin) <= this.timeToMinutes(payload.hora_inicio)) {
+      throw new Error('La hora final debe ser posterior a la hora inicial.');
+    }
+    if ('motivo' in payload && !normalizeWhitespace(payload.motivo)) {
+      throw new Error('El motivo es obligatorio.');
+    }
+    if ('estado' in payload && payload.estado && !['pendiente', 'confirmada', 'atendida', 'cancelada', 'reagendada', 'no_asistio'].includes(payload.estado)) {
+      throw new Error('Seleccione una opción válida.');
+    }
   }
 }

@@ -107,7 +107,16 @@ export abstract class BaseRepository<TRow extends Auditable, TInsert extends obj
 
   protected throwIfError(error: PostgrestError | null): void {
     if (error) {
-      throw new Error(error.message);
+      if (error.code === '23505' || /duplicate key/i.test(error.message)) {
+        throw new Error('Ya existe un registro con esos datos.');
+      }
+      if (error.code === '23503') {
+        throw new Error('El registro relacionado no existe o ya no está disponible.');
+      }
+      if (error.code === '23514') {
+        throw new Error('Revise los datos ingresados antes de guardar.');
+      }
+      throw new Error('No se pudo completar la operación. Inténtelo nuevamente.');
     }
   }
 }

@@ -6,11 +6,23 @@ import { AuthService } from '../../core/services/auth.service';
 import { PacientesService } from '../../core/services/pacientes.service';
 import { ToastService } from '../../core/services/toast.service';
 import { currentTime, todayIso } from '../../shared/utils/date-utils';
+import { ValidationFeedbackDirective } from '../../shared/directives/validation-feedback.directive';
+import {
+  allowedValues,
+  ecuadorianCedula,
+  emptyToNull,
+  isValidUuid,
+  maxTrimLength,
+  normalizeWhitespace,
+  notPastDate,
+  requiredTrim,
+  timeRange
+} from '../../shared/utils/validation.utils';
 
 @Component({
   selector: 'app-agenda',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, ValidationFeedbackDirective],
   templateUrl: './agenda.component.html'
 })
 export class AgendaComponent implements OnInit {
@@ -26,16 +38,16 @@ export class AgendaComponent implements OnInit {
   readonly pacienteError = signal<string | null>(null);
   readonly buscandoPaciente = signal(false);
   readonly form = this.fb.nonNullable.group({
-    cedula: ['', Validators.required],
+    cedula: ['', [requiredTrim(), ecuadorianCedula()]],
     paciente_id: ['', Validators.required],
     usuario_id: [''],
-    fecha: [todayIso(), Validators.required],
+    fecha: [todayIso(), [Validators.required, notPastDate()]],
     hora_inicio: [currentTime(), Validators.required],
     hora_fin: [''],
-    motivo: ['', Validators.required],
-    estado: ['pendiente' as EstadoCita, Validators.required],
-    notas: ['']
-  });
+    motivo: ['', [requiredTrim(), maxTrimLength(180)]],
+    estado: ['pendiente' as EstadoCita, [Validators.required, allowedValues(['pendiente', 'confirmada', 'atendida', 'cancelada', 'reagendada', 'no_asistio'] as const)]],
+    notas: ['', [maxTrimLength(300)]]
+  }, { validators: [timeRange()] });
 
   ngOnInit(): void {
     void this.load();
@@ -83,11 +95,17 @@ export class AgendaComponent implements OnInit {
   clear(): void {
     this.selectedId.set(null);
     this.form.reset({ cedula: '', paciente_id: '', usuario_id: '', fecha: todayIso(), hora_inicio: currentTime(), hora_fin: '', motivo: '', estado: 'pendiente', notas: '' });
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
     this.pacienteInfo.set(null);
     this.pacienteError.set(null);
   }
 
   async save(): Promise<void> {
+    if (this.loading()) {
+      return;
+    }
+    this.normalizeForm();
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -99,18 +117,18 @@ export class AgendaComponent implements OnInit {
     }
     const payload: AgendaInsert = {
       paciente_id: raw.paciente_id,
-      usuario_id: this.validUuid(raw.usuario_id) ? raw.usuario_id : null,
+      usuario_id: isValidUuid(raw.usuario_id) ? raw.usuario_id : null,
       fecha: raw.fecha,
       hora_inicio: raw.hora_inicio,
       hora_fin: raw.hora_fin || null,
-      motivo: raw.motivo,
+      motivo: normalizeWhitespace(raw.motivo),
       estado: raw.estado,
-      notas: raw.notas || null
+      notas: emptyToNull(raw.notas)
     };
     try {
       const id = this.selectedId();
       if (await this.agendaService.existeSolapamiento(payload, id)) {
-        this.toast.error('El horario ya esta ocupado para ese odontologo');
+        this.toast.error('El odontólogo ya tiene una cita en ese horario.');
         return;
       }
       id ? await this.agendaService.update(id, payload) : await this.agendaService.create(payload);
@@ -150,7 +168,7 @@ export class AgendaComponent implements OnInit {
   }
 
   async buscarPacientePorCedula(): Promise<void> {
-    const cedula = this.form.controls.cedula.value.trim();
+    const cedula = normalizeWhitespace(this.form.controls.cedula.value);
     if (!cedula) {
       this.pacienteInfo.set(null);
       this.pacienteError.set(null);
@@ -281,6 +299,16 @@ Esperamos que se encuentre bien despues de su tratamiento. Si presenta molestias
   }
 
   private validUuid(value: string | null | undefined): boolean {
-    return Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+    return isValidUuid(value);
+  }
+
+  private normalizeForm(): void {
+    const raw = this.form.getRawValue();
+    this.form.patchValue({
+      cedula: normalizeWhitespace(raw.cedula),
+      usuario_id: normalizeWhitespace(raw.usuario_id),
+      motivo: normalizeWhitespace(raw.motivo),
+      notas: normalizeWhitespace(raw.notas)
+    }, { emitEvent: false });
   }
 }

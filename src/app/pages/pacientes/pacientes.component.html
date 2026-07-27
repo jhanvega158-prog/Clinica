@@ -1,7 +1,7 @@
 <div class="page-title">
   <div>
     <h1>Pacientes</h1>
-    <p>CRUD conectado a Supabase con fotografia y archivos clinicos.</p>
+    <p>Registro, historial y seguimiento de pacientes.</p>
   </div>
   <div class="actions">
     <input class="search" type="search" placeholder="Buscar" [value]="searchTerm()" (input)="handleSearch($event)">
@@ -63,5 +63,5 @@
     </table>
   </div>
 } @else {
-  <div class="empty">No hay pacientes registrados en Supabase.</div>
+  <div class="empty">No hay pacientes registrados.</div>
 }

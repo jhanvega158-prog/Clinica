@@ -1,4 +1,4 @@
-<div class="page-title"><div><h1>Facturacion</h1><p>Facturas listas para imprimir o exportar a PDF desde el navegador.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button><button class="btn primary" type="button" (click)="print()">Imprimir PDF</button></div></div>
+<div class="page-title"><div><h1>Facturación</h1><p>Control de pagos, facturas y comprobantes.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button><button class="btn primary" type="button" (click)="print()">Imprimir PDF</button></div></div>
 <form class="panel" [formGroup]="form" (ngSubmit)="save()">
   <h2>{{ selectedId() ? 'Editar factura' : 'Nueva factura' }}</h2>
   <div class="grid">

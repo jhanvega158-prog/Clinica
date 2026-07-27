@@ -1,4 +1,4 @@
-<div class="page-title"><div><h1>Inventario</h1><p>Materiales, alertas de stock y vencimientos.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Todos</button><button class="btn" type="button" (click)="loadLowStock()">Stock bajo</button></div></div>
+<div class="page-title"><div><h1>Inventario</h1><p>Administración de insumos, materiales y equipos.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Todos</button><button class="btn" type="button" (click)="loadLowStock()">Stock bajo</button></div></div>
 <form class="panel" [formGroup]="form" (ngSubmit)="save()">
   <h2>{{ selectedId() ? 'Editar item' : 'Nuevo item' }}</h2>
   <div class="grid">
