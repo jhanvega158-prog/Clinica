@@ -13,7 +13,7 @@
   </div>
   @if (pacienteError()) { <p class="error-text">{{ pacienteError() }}</p> }
   @if (pacienteInfo()) { <p class="helper-text">{{ pacienteInfo() }}</p> }
-  <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar odontograma</button><button class="btn" type="button" (click)="calculate()">Calcular CPO</button></div>
+  <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar odontograma</button></div>
 </form>
 
 <section class="panel odontogram-panel">

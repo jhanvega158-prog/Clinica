@@ -1,4 +1,4 @@
-<div class="page-title"><div><h1>Facturación</h1><p>Control de pagos, facturas y comprobantes.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button><button class="btn primary" type="button" (click)="print()">Imprimir PDF</button></div></div>
+<div class="page-title"><div><h1>Facturación</h1><p>Control de pagos, facturas y comprobantes.</p></div><div class="actions"><button class="btn primary" type="button" (click)="print()">Imprimir PDF</button></div></div>
 <form class="panel" [formGroup]="form" (ngSubmit)="save()">
   <h2>{{ selectedId() ? 'Editar factura' : 'Nueva factura' }}</h2>
   <div class="grid">
@@ -10,10 +10,10 @@
   </div>
   @if (pacienteError()) { <p class="error-text">{{ pacienteError() }}</p> }
   @if (pacienteInfo()) { <p class="helper-text">{{ pacienteInfo() }}</p> }
-  <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar</button><button class="btn" type="button" (click)="clear()">Limpiar</button></div>
+  <div class="actions"><button class="btn" type="button" (click)="clear()">Limpiar</button></div>
 </form>
 @if (facturas().length) {
   <div class="table-wrap"><table><thead><tr><th>Numero</th><th>Fecha</th><th>Paciente</th><th>Total</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
     @for (factura of facturas(); track factura.id) { <tr><td>{{ factura.numero }}</td><td>{{ factura.fecha }}</td><td>{{ pacienteNombre(factura.paciente_id) }}</td><td>{{ factura.total }}</td><td><span class="badge">{{ factura.estado }}</span></td><td class="actions"><button class="btn" type="button" (click)="edit(factura)">Editar</button><button class="btn danger" type="button" (click)="remove(factura)">Eliminar</button></td></tr> }
   </tbody></table></div>
-} @else { <div class="empty">No hay facturas registradas.</div> }
+} 
