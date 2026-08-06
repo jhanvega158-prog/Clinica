@@ -13,7 +13,10 @@
   </div>
   @if (pacienteError()) { <p class="error-text">{{ pacienteError() }}</p> }
   @if (pacienteInfo()) { <p class="helper-text">{{ pacienteInfo() }}</p> }
-  <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar odontograma</button></div>
+  <div class="actions">
+    <button class="btn primary" type="submit" [disabled]="loading()">Guardar odontograma</button>
+    <button class="btn pdf-button" type="button" (click)="downloadPdf()" [disabled]="loading() || generandoPdf()">{{ generandoPdf() ? 'Generando PDF...' : 'Imprimir / Descargar PDF' }}</button>
+  </div>
 </form>
 
 <section class="panel odontogram-panel">
@@ -102,6 +105,48 @@
     </aside>
   </div>
 </section>
+
+<div id="odontograma-pdf" class="pdf-sheet" aria-hidden="true">
+  <header class="pdf-header">
+    <img src="assets/images/logo.jpeg" alt="Logo VitaDenti">
+    <div class="pdf-branding">
+      <strong>VitaDenti – Centro Integral Odontológico</strong>
+      <span>Cuidamos tu sonrisa, cuidamos tu salud</span>
+    </div>
+    <div class="pdf-title">
+      <h1>Odontograma clínico</h1>
+      <span>Generado: {{ pdfGeneratedAt() }}</span>
+    </div>
+  </header>
+
+  @if (pacientePdf(); as data) {
+    <section class="pdf-data-grid">
+      <div><span>Paciente</span><strong>{{ data.paciente.nombres }} {{ data.paciente.apellidos }}</strong></div>
+      <div><span>Cédula</span><strong>{{ data.paciente.cedula }}</strong></div>
+      <div><span>Edad</span><strong>{{ data.edad !== null ? data.edad + ' años' : 'No registrada' }}</strong></div>
+      <div><span>Teléfono</span><strong>{{ data.paciente.telefono || 'No registrado' }}</strong></div>
+      <div><span>Correo</span><strong>{{ data.paciente.email || 'No registrado' }}</strong></div>
+      <div><span>Profesional responsable</span><strong>{{ professionalName() }}</strong></div>
+    </section>
+  }
+
+  <section id="odontograma-pdf-chart" class="pdf-chart"></section>
+
+  <section class="pdf-bottom">
+    <div class="pdf-legend">
+      <strong>Simbología</strong>
+      @for (finding of findings; track finding.key) {
+        <span><i [style.background]="finding.color"></i>{{ finding.label }}</span>
+      }
+    </div>
+    <div class="pdf-observations"><strong>Observaciones:</strong> {{ form.controls.observaciones.value || 'Sin observaciones.' }}</div>
+  </section>
+
+  <footer class="pdf-signatures">
+    <div><span></span><strong>Firma del odontólogo</strong><small>{{ professionalName() }}</small></div>
+    <div><span></span><strong>Firma del paciente</strong><small>{{ pacientePdf()?.paciente?.nombres }} {{ pacientePdf()?.paciente?.apellidos }}</small></div>
+  </footer>
+</div>
 
 <section class="panel">
   <div class="legend">

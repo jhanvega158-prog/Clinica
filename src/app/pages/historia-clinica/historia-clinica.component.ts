@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { DocumentoClinico, EstadoRegistro, HistoriaClinica, HistoriaClinicaInsert, Json } from '../../core/models/interfaces/database.types';
+import { DocumentoClinico, EstadoRegistro, HistoriaClinica, HistoriaClinicaInsert, Json, Paciente } from '../../core/models/interfaces/database.types';
 import { HistoriaService } from '../../core/services/historia.service';
 import { PacientesService } from '../../core/services/pacientes.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -19,7 +19,8 @@ import {
   selector: 'app-historia-clinica',
   standalone: true,
   imports: [ReactiveFormsModule, ValidationFeedbackDirective],
-  templateUrl: './historia-clinica.component.html'
+  templateUrl: './historia-clinica.component.html',
+  styleUrl: './historia-clinica.component.css'
 })
 export class HistoriaClinicaComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
@@ -34,6 +35,10 @@ export class HistoriaClinicaComponent implements OnInit {
   readonly pacienteInfo = signal<string | null>(null);
   readonly pacienteError = signal<string | null>(null);
   readonly buscandoPaciente = signal(false);
+  readonly searchTerm = signal('');
+  readonly hasSearched = signal(false);
+  readonly pacientesEncontrados = signal<Paciente[]>([]);
+  readonly pacienteSeleccionado = signal<Paciente | null>(null);
   readonly form = this.fb.nonNullable.group({
     cedula: ['', [requiredTrim(), ecuadorianCedula()]],
     paciente_id: ['', Validators.required],
@@ -49,19 +54,42 @@ export class HistoriaClinicaComponent implements OnInit {
     estado: ['activo' as EstadoRegistro, [Validators.required, allowedValues(['activo', 'pendiente', 'completado', 'anulado'] as const)]]
   });
 
-  ngOnInit(): void { void this.load(); }
+  ngOnInit(): void { /* Búsqueda bajo demanda: no se cargan historias al iniciar. */ }
 
   async load(): Promise<void> {
-    try {
-      const [historias, pacientes] = await Promise.all([
-        this.historiaService.findAll({ orderBy: 'created_at', ascending: false }),
-        this.pacientesService.findAll({ orderBy: 'apellidos', ascending: true })
-      ]);
-      this.historias.set(historias);
-      this.pacientesPorId.set(new Map(pacientes.map((paciente) => [paciente.id, `${paciente.apellidos} ${paciente.nombres} (${paciente.cedula})`])));
-    } catch (error) {
-      this.toast.error(error instanceof Error ? error.message : 'No se cargaron historias');
-    }
+    const paciente = this.pacienteSeleccionado();
+    if (paciente) await this.loadHistoriasPaciente(paciente);
+  }
+
+  async buscarPacientes(value: string): Promise<void> {
+    const term = normalizeWhitespace(value);
+    this.searchTerm.set(term);
+    if (!term) { this.clearSearch(); return; }
+    this.hasSearched.set(true);
+    this.pacienteSeleccionado.set(null);
+    this.historias.set([]);
+    this.documentos.set([]);
+    try { this.pacientesEncontrados.set(await this.pacientesService.search(term)); }
+    catch (error) { this.toast.error(error instanceof Error ? error.message : 'No se pudo buscar pacientes'); }
+  }
+
+  async seleccionarPaciente(paciente: Paciente): Promise<void> {
+    this.pacienteSeleccionado.set(paciente);
+    this.pacientesPorId.set(new Map([[paciente.id, `${paciente.apellidos} ${paciente.nombres} (${paciente.cedula})`]]));
+    this.pacienteInfo.set(`${paciente.apellidos} ${paciente.nombres} • ${paciente.cedula} • ${paciente.telefono || 'Sin teléfono'}`);
+    this.resetFormForPatient(paciente);
+    await this.loadHistoriasPaciente(paciente);
+  }
+
+  nuevaHistoria(): void {
+    const paciente = this.pacienteSeleccionado();
+    if (!paciente) return;
+    this.resetFormForPatient(paciente);
+  }
+
+  clearSearch(): void {
+    this.searchTerm.set(''); this.hasSearched.set(false); this.pacientesEncontrados.set([]); this.pacienteSeleccionado.set(null);
+    this.historias.set([]); this.pacientesPorId.set(new Map()); this.clear();
   }
 
   edit(historia: HistoriaClinica): void {
@@ -83,6 +111,7 @@ export class HistoriaClinicaComponent implements OnInit {
       estado: historia.estado
     });
     void this.cargarSegurosPaciente(historia.paciente_id);
+    void this.cargarDocumentos(historia.paciente_id, historia.id);
   }
 
   clear(): void {
@@ -124,9 +153,9 @@ export class HistoriaClinicaComponent implements OnInit {
       const saved = id ? await this.historiaService.update(id, payload) : await this.historiaService.create(payload);
       await this.guardarSeguros(raw.paciente_id, raw.seguros);
       this.toast.success('Historia clinica guardada');
-      this.clear();
+      const paciente = this.pacienteSeleccionado();
       this.selectedId.set(saved.id);
-      await this.load();
+      if (paciente) await this.loadHistoriasPaciente(paciente);
       await this.cargarDocumentos(raw.paciente_id, saved.id);
     } catch (error) { this.toast.error(error instanceof Error ? error.message : 'No se pudo guardar historia'); }
   }
@@ -213,6 +242,23 @@ export class HistoriaClinicaComponent implements OnInit {
   }
 
   print(): void { window.print(); }
+
+  private async loadHistoriasPaciente(paciente: Paciente): Promise<void> {
+    try {
+      this.historias.set(await this.historiaService.porPaciente(paciente.id));
+      this.pacientesPorId.set(new Map([[paciente.id, `${paciente.apellidos} ${paciente.nombres} (${paciente.cedula})`]]));
+    } catch (error) { this.toast.error(error instanceof Error ? error.message : 'No se cargaron las historias del paciente'); }
+  }
+
+  private resetFormForPatient(paciente: Paciente): void {
+    this.selectedId.set(null);
+    this.documentos.set([]);
+    this.form.reset({ cedula: paciente.cedula, paciente_id: paciente.id, usuario_id: '', motivo_consulta: '', enfermedad_actual: '', seguros: '', signos_vitales: '', examen_estomatognatico: '', diagnosticos: '', plan_tratamiento: '', observaciones: '', estado: 'activo' });
+    this.form.markAsPristine(); this.form.markAsUntouched();
+    this.pacienteInfo.set(`${paciente.apellidos} ${paciente.nombres} • ${paciente.cedula} • ${paciente.telefono || 'Sin teléfono'}`);
+    this.pacienteError.set(null);
+    void this.cargarSegurosPaciente(paciente.id);
+  }
 
   private async cargarSegurosPaciente(pacienteId: string): Promise<void> {
     try {

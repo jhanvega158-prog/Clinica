@@ -2,8 +2,8 @@
   <div class="app-shell">
     <aside [class.open]="menuOpen()">
       <div class="brand">
-        <span class="brand-mark">VD</span>
-        <div>
+        <img class="brand-logo" src="assets/images/logo.jpeg" alt="VitaDenti - Centro Integral Odontológico">
+        <div class="brand-copy">
           <strong>VitaDenti</strong>
           <small>Centro Integral Odontológico</small>
         </div>
@@ -36,9 +36,10 @@
     <main>
       <header>
         <button type="button" class="menu" (click)="toggleMenu()">Menu</button>
+        <img class="header-logo" src="assets/images/logo.jpeg" alt="VitaDenti">
         <div>
-          <strong>VitaDenti</strong>
-          <small>{{ profileName() }}</small>
+          <strong>{{ profileName() }}</strong>
+          <small>{{ auth.profile()?.rol || 'Usuario' }}</small>
         </div>
         <button type="button" class="primary" routerLink="/pacientes">Nuevo paciente</button>
       </header>

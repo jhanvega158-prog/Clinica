@@ -37,6 +37,7 @@ export class PacientesComponent implements OnInit {
   readonly selectedId = signal<string | null>(null);
   readonly loading = this.pacientesService.loading;
   readonly searchTerm = signal('');
+  readonly hasSearched = signal(false);
 
   readonly form = this.fb.nonNullable.group({
     numero_historia: ['', [requiredTrim(), maxTrimLength(30)]],
@@ -57,29 +58,31 @@ export class PacientesComponent implements OnInit {
   }, { validators: [emergencyContactPair()] });
 
   ngOnInit(): void {
-    void this.load();
+    // La consulta se ejecuta únicamente cuando el usuario realiza una búsqueda.
   }
 
   async load(): Promise<void> {
-    try {
-      this.pacientes.set(await this.pacientesService.findAll({ orderBy: 'apellidos', ascending: true }));
-    } catch (error) {
-      this.toast.error(error instanceof Error ? error.message : 'No se pudieron cargar pacientes');
-    }
+    if (this.hasSearched() && this.searchTerm()) await this.search(this.searchTerm());
   }
 
   async search(value: string): Promise<void> {
-    this.searchTerm.set(value);
+    const term = normalizeWhitespace(value);
+    this.searchTerm.set(term);
+    if (!term) { this.pacientes.set([]); this.hasSearched.set(false); return; }
+    this.hasSearched.set(true);
     try {
-      this.pacientes.set(value.trim() ? await this.pacientesService.search(value.trim()) : await this.pacientesService.findAll({ orderBy: 'apellidos', ascending: true }));
+      this.pacientes.set(await this.pacientesService.search(term));
     } catch (error) {
       this.toast.error(error instanceof Error ? error.message : 'Busqueda no disponible');
     }
   }
 
-  handleSearch(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    void this.search(input.value);
+  runSearch(input: HTMLInputElement): void { void this.search(input.value); }
+
+  clearSearch(): void {
+    this.searchTerm.set('');
+    this.hasSearched.set(false);
+    this.pacientes.set([]);
   }
 
   edit(paciente: Paciente): void {
@@ -162,17 +165,18 @@ export class PacientesComponent implements OnInit {
         this.toast.success('Paciente creado');
       }
       this.clear();
-      await this.load();
+      if (this.hasSearched()) await this.search(this.searchTerm());
     } catch (error) {
       this.toast.error(error instanceof Error ? error.message : 'No se pudo guardar');
     }
   }
 
   async remove(paciente: Paciente): Promise<void> {
+    if (!window.confirm(`¿Está seguro de eliminar a ${paciente.nombres} ${paciente.apellidos}?`)) return;
     try {
       await this.pacientesService.delete(paciente.id);
       this.toast.success('Paciente eliminado');
-      await this.load();
+      await this.search(this.searchTerm());
     } catch (error) {
       this.toast.error(error instanceof Error ? error.message : 'No se pudo eliminar');
     }
@@ -193,7 +197,7 @@ export class PacientesComponent implements OnInit {
       }
       this.toast.success('Archivo subido');
       input.value = '';
-      await this.load();
+      if (this.hasSearched()) await this.search(this.searchTerm());
     } catch (error) {
       this.toast.error(error instanceof Error ? error.message : 'No se pudo subir el archivo');
     }

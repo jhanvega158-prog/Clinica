@@ -10,12 +10,16 @@ import {
   OdontogramaDetalle,
   OdontogramaDetalleInsert,
   OdontogramaInsert,
+  Paciente,
   PiezaExaminada
 } from '../../core/models/interfaces/database.types';
 import { OdontogramaService } from '../../core/services/odontograma.service';
 import { PacientesService } from '../../core/services/pacientes.service';
 import { ToastService } from '../../core/services/toast.service';
 import { HistoriaService } from '../../core/services/historia.service';
+import { AuthService } from '../../core/services/auth.service';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { getSurfaceColor, getToothShape, getToothVisualState, parseSurfaceFindings, serializeSurfaceFindings, type FindingKind, type ToothSurface } from './odontograma-helpers';
 import { ValidationFeedbackDirective } from '../../shared/directives/validation-feedback.directive';
 import {
@@ -52,6 +56,7 @@ export class OdontogramaComponent implements OnInit {
   private readonly odontogramaService = inject(OdontogramaService);
   private readonly pacientesService = inject(PacientesService);
   private readonly historiaService = inject(HistoriaService);
+  private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
   readonly odontogramas = signal<Odontograma[]>([]);
   readonly detalles = signal<OdontogramaDetalle[]>([]);
@@ -65,6 +70,8 @@ export class OdontogramaComponent implements OnInit {
   readonly pacienteInfo = signal<string | null>(null);
   readonly pacienteError = signal<string | null>(null);
   readonly buscandoPaciente = signal(false);
+  readonly generandoPdf = signal(false);
+  readonly pacientePdf = signal<{ paciente: Paciente; edad: number | null } | null>(null);
   readonly selectedTooth = signal<number | null>(null);
   readonly selectedFinding = signal<FindingKind>('caries');
   readonly piezas = [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28,48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38,55,54,53,52,51,61,62,63,64,65,85,84,83,82,81,71,72,73,74,75];
@@ -78,6 +85,10 @@ export class OdontogramaComponent implements OnInit {
     { key: 'movilidad' as const, label: 'Movilidad', color: '#facc15', description: 'Movilidad periodontal' },
     { key: 'recesion' as const, label: 'Recesión', color: '#f97316', description: 'Recesión gingival' }
   ];
+  readonly professionalName = computed(() => {
+    const profile = this.auth.profile();
+    return profile ? `${profile.nombres} ${profile.apellidos}`.trim() : 'No especificado';
+  });
   readonly piezasExaminadasTabla = [
     [16, 17, 55],
     [11, 21, 51],
@@ -143,6 +154,7 @@ export class OdontogramaComponent implements OnInit {
     const pacienteLabel = this.pacientesPorId().get(item.paciente_id) ?? '';
     const cedula = pacienteLabel.match(/\((\d{10})\)$/)?.[1] ?? '';
     this.form.patchValue({ cedula, paciente_id: item.paciente_id, historia_id: item.historia_id ?? '', tipo: item.tipo, estado: item.estado, observaciones: item.observaciones ?? '' });
+    await this.loadPacientePdf(item.paciente_id);
     await this.loadDetails(item.id);
     await this.loadCpoManual(item.id);
     await this.loadIndicadores(item.historia_id ?? '');
@@ -177,6 +189,7 @@ export class OdontogramaComponent implements OnInit {
     this.indicadoresForm.markAsUntouched();
     this.pacienteInfo.set(null);
     this.pacienteError.set(null);
+    this.pacientePdf.set(null);
   }
 
   async save(): Promise<void> {
@@ -271,6 +284,7 @@ export class OdontogramaComponent implements OnInit {
       }
 
       this.form.patchValue({ paciente_id: result.paciente.id, cedula: result.paciente.cedula });
+      this.pacientePdf.set({ paciente: result.paciente, edad: result.edad });
       const { historiaId, odontogramaId } = await this.ensureContext();
       this.form.patchValue({ historia_id: historiaId });
       this.selectedId.set(odontogramaId);
@@ -379,6 +393,54 @@ export class OdontogramaComponent implements OnInit {
     this.detailForm.patchValue({ pieza, superficie: this.currentDetail(pieza)?.superficie ?? '', movilidad: this.currentDetail(pieza)?.movilidad ?? 0, recesion: this.currentDetail(pieza)?.recesion ?? 0, notas: this.currentDetail(pieza)?.notas ?? '' });
   }
 
+  async downloadPdf(): Promise<void> {
+    if (!this.form.controls.paciente_id.value) {
+      this.toast.error('Seleccione un paciente antes de generar el PDF.');
+      return;
+    }
+    if (!this.selectedId()) {
+      this.toast.error('Primero debe guardar el odontograma.');
+      return;
+    }
+    if (!this.pacientePdf()) await this.loadPacientePdf(this.form.controls.paciente_id.value);
+
+    const sheet = document.getElementById('odontograma-pdf');
+    const source = document.querySelector('.chart-card .dental-chart');
+    const chartHost = document.getElementById('odontograma-pdf-chart');
+    if (!sheet || !source || !chartHost) {
+      this.toast.error('No se pudo preparar el odontograma para impresión.');
+      return;
+    }
+
+    this.generandoPdf.set(true);
+    try {
+      chartHost.replaceChildren(source.cloneNode(true));
+      await this.waitForImages(sheet);
+      const canvas = await html2canvas(sheet, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+      const margin = 8;
+      const availableWidth = pdf.internal.pageSize.getWidth() - margin * 2;
+      const availableHeight = pdf.internal.pageSize.getHeight() - margin * 2;
+      const ratio = Math.min(availableWidth / canvas.width, availableHeight / canvas.height);
+      const width = canvas.width * ratio;
+      const height = canvas.height * ratio;
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.94), 'JPEG', (pdf.internal.pageSize.getWidth() - width) / 2, margin, width, height, undefined, 'FAST');
+      const patient = this.pacientePdf()?.paciente;
+      const safeName = `${patient?.nombres ?? 'Paciente'}_${patient?.apellidos ?? ''}`.trim().replace(/[^a-zA-ZÀ-ÿ0-9]+/g, '_');
+      pdf.save(`Odontograma_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
+      this.toast.success('PDF del odontograma descargado.');
+    } catch (error) {
+      this.toast.error(error instanceof Error ? error.message : 'No se pudo generar el PDF.');
+    } finally {
+      chartHost.replaceChildren();
+      this.generandoPdf.set(false);
+    }
+  }
+
+  pdfGeneratedAt(): string {
+    return new Intl.DateTimeFormat('es-EC', { dateStyle: 'long', timeStyle: 'short' }).format(new Date());
+  }
+
   surfaceColor(tooth: ToothViewModel, surface: ToothSurface): string {
     return getSurfaceColor(tooth.detail, surface);
   }
@@ -413,6 +475,26 @@ export class OdontogramaComponent implements OnInit {
 
   private currentDetail(pieza: number): OdontogramaDetalle | null {
     return this.detalles().find((item) => item.pieza === pieza) ?? null;
+  }
+
+  private async loadPacientePdf(pacienteId: string): Promise<void> {
+    const paciente = await this.pacientesService.findById(pacienteId);
+    if (!paciente) return;
+    const birth = paciente.fecha_nacimiento ? new Date(`${paciente.fecha_nacimiento}T00:00:00`) : null;
+    const today = new Date();
+    let edad: number | null = null;
+    if (birth && !Number.isNaN(birth.getTime())) {
+      edad = today.getFullYear() - birth.getFullYear();
+      if (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate())) edad--;
+    }
+    this.pacientePdf.set({ paciente, edad });
+  }
+
+  private async waitForImages(container: HTMLElement): Promise<void> {
+    const images = Array.from(container.querySelectorAll('img'));
+    await Promise.all(images.map((image) => image.complete
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => { image.onload = () => resolve(); image.onerror = () => resolve(); })));
   }
 
   private async ensureContext(): Promise<{ historiaId: string; odontogramaId: string }> {

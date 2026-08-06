@@ -39,7 +39,7 @@ export class PacientesService extends BaseRepository<Paciente, PacienteInsert, P
     const { data, error } = await supabase
       .from('pacientes')
       .select('*')
-      .or(`nombres.ilike.${value},apellidos.ilike.${value},cedula.ilike.${value},numero_historia.ilike.${value}`)
+      .or(`nombres.ilike.${value},apellidos.ilike.${value},cedula.ilike.${value},telefono.ilike.${value}`)
       .order('apellidos', { ascending: true });
 
     this.throwIfError(error);

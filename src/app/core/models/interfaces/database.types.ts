@@ -348,6 +348,8 @@ export type DocumentoClinico = Pick<
   'id' | 'paciente_id' | 'historia_id' | 'tipo' | 'nombre' | 'path' | 'url' | 'mime_type' | 'size' | 'created_at' | 'updated_at'
 >;
 
+export type EstadoFactura = 'pendiente' | 'completado' | 'anulado';
+
 export interface Factura extends Auditable {
   paciente_id: EntityId;
   numero: string;
@@ -356,17 +358,23 @@ export interface Factura extends Auditable {
   impuesto: number;
   descuento: number;
   total: number;
-  estado: EstadoRegistro;
+  estado: EstadoFactura;
   observaciones: string | null;
 }
 
-export interface FacturaItem extends Auditable {
+export interface DetalleFactura {
+  id: EntityId;
   factura_id: EntityId;
+  tratamiento_id: EntityId | null;
   descripcion: string;
   cantidad: number;
   precio_unitario: number;
+  descuento: number;
   total: number;
+  created_at: string | null;
 }
+
+export type FacturaItem = DetalleFactura;
 
 export interface Inventario extends Auditable {
   codigo: string;
@@ -474,7 +482,7 @@ export interface Database {
       archivos_clinicos: { Row: ArchivoClinico; Insert: InsertOf<ArchivoClinico>; Update: UpdateOf<ArchivoClinico> };
       documentos_clinicos: { Row: DocumentoClinico; Insert: InsertOf<DocumentoClinico>; Update: UpdateOf<DocumentoClinico> };
       facturas: { Row: Factura; Insert: InsertOf<Factura>; Update: UpdateOf<Factura> };
-      factura_items: { Row: FacturaItem; Insert: InsertOf<FacturaItem>; Update: UpdateOf<FacturaItem> };
+      detalle_facturas: { Row: DetalleFactura; Insert: Omit<DetalleFactura, 'id' | 'created_at'>; Update: Partial<Omit<DetalleFactura, 'id' | 'created_at'>> };
       inventario: { Row: Inventario; Insert: InsertOf<Inventario>; Update: UpdateOf<Inventario> };
       inventario_movimientos: { Row: InventarioMovimiento; Insert: InsertOf<InventarioMovimiento>; Update: UpdateOf<InventarioMovimiento> };
       configuracion_sistema: { Row: ConfiguracionSistema; Insert: InsertOf<ConfiguracionSistema>; Update: UpdateOf<ConfiguracionSistema> };

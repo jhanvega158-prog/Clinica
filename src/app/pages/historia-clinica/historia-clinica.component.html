@@ -1,44 +1,55 @@
-<div class="page-title"><div><h1>Historia Clínica</h1><p>Información médica y evolución de cada paciente.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nueva</button><button class="btn" type="button" (click)="load()">Actualizar</button><button class="btn primary" type="button" (click)="print()">Imprimir PDF</button></div></div>
-<form class="panel" [formGroup]="form" (ngSubmit)="save()">
-  <h2>{{ selectedId() ? 'Editar historia' : 'Nueva historia' }}</h2>
-  <div class="grid">
-    <label class="field">Cédula del paciente<input formControlName="cedula" (blur)="buscarPacientePorCedula()" (keydown.enter)="$event.preventDefault(); buscarPacientePorCedula()"></label>
-    <label class="field">Paciente<input [value]="pacienteDisplayValue()" readonly placeholder="Se completa automáticamente"></label>
-    <input formControlName="paciente_id" hidden>
-    <label class="field span-2">Motivo de consulta<textarea rows="2" formControlName="motivo_consulta"></textarea></label>
-    <label class="field span-2">Enfermedad actual<textarea rows="2" formControlName="enfermedad_actual"></textarea></label>
-    <label class="field span-2">Seguros<textarea rows="2" formControlName="seguros" placeholder="Separados por coma o salto de línea"></textarea></label>
-    <label class="field">Signos vitales<textarea rows="4" formControlName="signos_vitales"></textarea></label>
-    <label class="field">Examen estomatognático<textarea rows="4" formControlName="examen_estomatognatico"></textarea></label>
-    <label class="field span-2">Diagnósticos<textarea rows="4" formControlName="diagnosticos"></textarea></label>
-    <label class="field span-2">Plan de tratamiento<textarea rows="3" formControlName="plan_tratamiento"></textarea></label>
-    <label class="field">Estado<select formControlName="estado"><option>activo</option><option>pendiente</option><option>completado</option><option>anulado</option></select></label>
-    <label class="field">Observaciones<input formControlName="observaciones"></label>
+<div class="page-title"><div><h1>Historia Clínica</h1><p>Información médica y evolución de cada paciente.</p></div></div>
+
+<section class="panel history-search-panel">
+  <div><h2>Buscar paciente para historia clínica</h2><p>Consulta por cédula, nombre o apellido.</p></div>
+  <div class="history-search-controls">
+    <input #historySearch class="search" type="search" placeholder="Cédula, nombre o apellido" [value]="searchTerm()" (keydown.enter)="$event.preventDefault(); buscarPacientes(historySearch.value)">
+    <button class="btn primary" type="button" (click)="buscarPacientes(historySearch.value)">Buscar</button>
+    <button class="btn" type="button" (click)="clearSearch(); historySearch.value = ''">Limpiar búsqueda</button>
+    <button class="btn new-history" type="button" (click)="nuevaHistoria()" [disabled]="!pacienteSeleccionado()">Nueva historia clínica</button>
   </div>
-  @if (pacienteError()) { <p class="error-text">{{ pacienteError() }}</p> }
-  @if (pacienteInfo()) { <p class="helper-text">{{ pacienteInfo() }}</p> }
-  <div class="actions">
-    <button class="btn primary" type="submit" [disabled]="loading()">Guardar</button>
-    <label class="btn">Subir radiografía<input hidden type="file" accept="image/*,.pdf" (change)="upload($event,'radiografia')"></label>
-    <label class="btn">Subir documento<input hidden type="file" (change)="upload($event,'documento')"></label>
-  </div>
-</form>
-<section class="panel">
-  <h2>Archivos clínicos</h2>
-  @if (documentos().length) {
-    <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Tipo</th><th>Acciones</th></tr></thead><tbody>
-      @for (documento of documentos(); track documento.id) {
-        <tr>
-          <td>{{ documento.nombre }}</td>
-          <td>{{ documento.tipo }}</td>
-          <td class="actions"><button class="btn" type="button" (click)="abrirDocumento(documento)">Abrir</button><button class="btn danger" type="button" (click)="eliminarDocumento(documento)">Eliminar</button></td>
-        </tr>
-      }
-    </tbody></table></div>
-  } @else { <div class="empty">No hay archivos cargados para esta historia.</div> }
 </section>
-@if (historias().length) {
-  <div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Motivo</th><th>Estado</th><th>Creada</th><th>Acciones</th></tr></thead><tbody>
-    @for (historia of historias(); track historia.id) { <tr><td>{{ pacienteNombre(historia.paciente_id) }}</td><td>{{ historia.motivo_consulta || '-' }}</td><td><span class="badge">{{ historia.estado }}</span></td><td>{{ historia.created_at || '-' }}</td><td class="actions"><button class="btn" type="button" (click)="edit(historia)">Editar</button><button class="btn danger" type="button" (click)="remove(historia)">Eliminar</button></td></tr> }
-  </tbody></table></div>
-} @else { <div class="empty">No hay historias registradas.</div> }
+
+@if (hasSearched() && !pacienteSeleccionado()) {
+  @if (pacientesEncontrados().length) {
+    <section class="panel patient-results"><h2>Pacientes encontrados</h2><div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Cédula</th><th>Contacto</th><th>Acción</th></tr></thead><tbody>@for (paciente of pacientesEncontrados(); track paciente.id) { <tr><td><strong>{{ paciente.apellidos }} {{ paciente.nombres }}</strong></td><td>{{ paciente.cedula }}</td><td>{{ paciente.telefono || '-' }}<br>{{ paciente.email || '-' }}</td><td><button class="btn" type="button" (click)="seleccionarPaciente(paciente)">Seleccionar</button></td></tr> }</tbody></table></div></section>
+  } @else { <div class="empty">No se encontraron pacientes para “{{ searchTerm() }}”.</div> }
+} @else if (!pacienteSeleccionado()) {
+  <div class="empty history-initial">Busca un paciente para consultar o crear su historia clínica.</div>
+}
+
+@if (pacienteSeleccionado()) {
+  <form class="panel" [formGroup]="form" (ngSubmit)="save()">
+    <h2>{{ selectedId() ? 'Editar historia' : 'Nueva historia' }}</h2>
+    <div class="grid">
+      <label class="field">Cédula del paciente<input formControlName="cedula" readonly></label>
+      <label class="field">Paciente<input [value]="pacienteDisplayValue()" readonly></label>
+      <input formControlName="paciente_id" hidden>
+      <label class="field span-2">Motivo de consulta<textarea rows="2" formControlName="motivo_consulta"></textarea></label>
+      <label class="field span-2">Enfermedad actual<textarea rows="2" formControlName="enfermedad_actual"></textarea></label>
+      <label class="field span-2">Seguros<textarea rows="2" formControlName="seguros" placeholder="Separados por coma o salto de línea"></textarea></label>
+      <label class="field">Signos vitales<textarea rows="4" formControlName="signos_vitales"></textarea></label>
+      <label class="field">Examen estomatognático<textarea rows="4" formControlName="examen_estomatognatico"></textarea></label>
+      <label class="field span-2">Diagnósticos<textarea rows="4" formControlName="diagnosticos"></textarea></label>
+      <label class="field span-2">Plan de tratamiento<textarea rows="3" formControlName="plan_tratamiento"></textarea></label>
+      <label class="field">Estado<select formControlName="estado"><option>activo</option><option>pendiente</option><option>completado</option><option>anulado</option></select></label>
+      <label class="field">Observaciones<input formControlName="observaciones"></label>
+    </div>
+    @if (pacienteError()) { <p class="error-text">{{ pacienteError() }}</p> }
+    @if (pacienteInfo()) { <p class="helper-text">{{ pacienteInfo() }}</p> }
+    <div class="actions">
+      <button class="btn primary" type="submit" [disabled]="loading()">Guardar</button>
+      <label class="btn">Subir radiografía<input hidden type="file" accept="image/*,.pdf" (change)="upload($event,'radiografia')"></label>
+      <label class="btn">Subir documento<input hidden type="file" (change)="upload($event,'documento')"></label>
+      <button class="btn" type="button" (click)="print()">Imprimir</button>
+    </div>
+  </form>
+
+  <section class="panel"><h2>Archivos clínicos</h2>
+    @if (documentos().length) { <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Tipo</th><th>Acciones</th></tr></thead><tbody>@for (documento of documentos(); track documento.id) { <tr><td>{{ documento.nombre }}</td><td>{{ documento.tipo }}</td><td class="actions"><button class="btn" type="button" (click)="abrirDocumento(documento)">Abrir</button><button class="btn danger" type="button" (click)="eliminarDocumento(documento)">Eliminar</button></td></tr> }</tbody></table></div> }
+    @else { <div class="empty">No hay archivos cargados para esta historia.</div> }
+  </section>
+
+  @if (historias().length) { <div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Motivo</th><th>Estado</th><th>Creada</th><th>Acciones</th></tr></thead><tbody>@for (historia of historias(); track historia.id) { <tr><td>{{ pacienteNombre(historia.paciente_id) }}</td><td>{{ historia.motivo_consulta || '-' }}</td><td><span class="badge">{{ historia.estado }}</span></td><td>{{ historia.created_at || '-' }}</td><td class="actions"><button class="btn" type="button" (click)="edit(historia)">Ver / Editar</button><button class="btn danger" type="button" (click)="remove(historia)">Eliminar</button></td></tr> }</tbody></table></div> }
+  @else { <div class="empty">Este paciente no tiene historias clínicas registradas.</div> }
+}
