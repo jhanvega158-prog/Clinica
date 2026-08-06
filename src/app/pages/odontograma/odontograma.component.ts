@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { NgTemplateOutlet } from '@angular/common';
 import {
   CpoResultado,
   EstadoRegistro,
@@ -15,7 +16,7 @@ import { OdontogramaService } from '../../core/services/odontograma.service';
 import { PacientesService } from '../../core/services/pacientes.service';
 import { ToastService } from '../../core/services/toast.service';
 import { HistoriaService } from '../../core/services/historia.service';
-import { getToothShape, getToothVisualState, type FindingKind } from './odontograma-helpers';
+import { getSurfaceColor, getToothShape, getToothVisualState, parseSurfaceFindings, serializeSurfaceFindings, type FindingKind, type ToothSurface } from './odontograma-helpers';
 import { ValidationFeedbackDirective } from '../../shared/directives/validation-feedback.directive';
 import {
   allowedValues,
@@ -42,7 +43,7 @@ interface ToothViewModel {
 @Component({
   selector: 'app-odontograma',
   standalone: true,
-  imports: [ReactiveFormsModule, ValidationFeedbackDirective],
+  imports: [ReactiveFormsModule, ValidationFeedbackDirective, NgTemplateOutlet],
   templateUrl: './odontograma.component.html',
   styleUrl: './odontograma.component.css'
 })
@@ -105,8 +106,22 @@ export class OdontogramaComponent implements OnInit {
     q2: this.odontogramaView().filter((item) => item.quadrant === 2),
     q3: this.odontogramaView().filter((item) => item.quadrant === 3),
     q4: this.odontogramaView().filter((item) => item.quadrant === 4),
-    temporales: this.odontogramaView().filter((item) => item.quadrant === 5)
+    upperLeftTemporary: this.teethInOrder([55,54,53,52,51]),
+    upperRightTemporary: this.teethInOrder([61,62,63,64,65]),
+    lowerLeftTemporary: this.teethInOrder([85,84,83,82,81]),
+    lowerRightTemporary: this.teethInOrder([71,72,73,74,75])
   }));
+
+  readonly surfaces: ToothSurface[] = ['arriba', 'derecha', 'abajo', 'izquierda', 'centro'];
+  readonly chartRows = computed(() => {
+    const ordered = (numbers: number[]) => this.teethInOrder(numbers);
+    return [
+      { key: 'permanent-upper', label: 'Dentición permanente superior', temporary: false, left: ordered([18,17,16,15,14,13,12,11]), right: ordered([21,22,23,24,25,26,27,28]) },
+      { key: 'temporary-upper', label: 'Dentición temporal superior', temporary: true, left: ordered([55,54,53,52,51]), right: ordered([61,62,63,64,65]) },
+      { key: 'temporary-lower', label: 'Dentición temporal inferior', temporary: true, left: ordered([85,84,83,82,81]), right: ordered([71,72,73,74,75]) },
+      { key: 'permanent-lower', label: 'Dentición permanente inferior', temporary: false, left: ordered([48,47,46,45,44,43,42,41]), right: ordered([31,32,33,34,35,36,37,38]) }
+    ];
+  });
 
   ngOnInit(): void { void this.load(); }
 
@@ -362,6 +377,38 @@ export class OdontogramaComponent implements OnInit {
   selectTooth(pieza: number): void {
     this.selectedTooth.set(pieza);
     this.detailForm.patchValue({ pieza, superficie: this.currentDetail(pieza)?.superficie ?? '', movilidad: this.currentDetail(pieza)?.movilidad ?? 0, recesion: this.currentDetail(pieza)?.recesion ?? 0, notas: this.currentDetail(pieza)?.notas ?? '' });
+  }
+
+  surfaceColor(tooth: ToothViewModel, surface: ToothSurface): string {
+    return getSurfaceColor(tooth.detail, surface);
+  }
+
+  async applyFinding(pieza: number, surface: ToothSurface, event: Event): Promise<void> {
+    event.stopPropagation();
+    this.selectTooth(pieza);
+    try {
+      const { odontogramaId } = await this.ensureContext();
+      const current = this.currentDetail(pieza);
+      const states = parseSurfaceFindings(current?.superficie);
+      states[surface] = this.selectedFinding();
+      const raw = this.detailForm.getRawValue();
+      const conditionParts = new Set((current?.condicion ?? '').split('|').filter((item) => item && item !== 'sin_hallazgo'));
+      conditionParts.add(this.selectedFinding());
+      await this.odontogramaService.guardarDetalle({
+        odontograma_id: odontogramaId, pieza, superficie: serializeSurfaceFindings(states),
+        condicion: [...conditionParts].join('|'), movilidad: Number(raw.movilidad) || null,
+        recesion: Number(raw.recesion) || null, notas: emptyToNull(raw.notas)
+      });
+      await this.loadDetails(odontogramaId);
+      await this.calculate();
+    } catch (error) {
+      this.toast.error(error instanceof Error ? error.message : 'No se pudo guardar hallazgo');
+    }
+  }
+
+  private teethInOrder(numbers: number[]): ToothViewModel[] {
+    const view = this.odontogramaView();
+    return numbers.map((number) => view.find((tooth) => tooth.numero === number)!).filter(Boolean);
   }
 
   private currentDetail(pieza: number): OdontogramaDetalle | null {

@@ -33,63 +33,55 @@
   </div>
 
   <div class="chart-layout">
-    <div class="chart-card">
-      <div class="quadrant-grid">
-        <div class="quadrant">
-          <h3>Cuadrante 1</h3>
-          <div class="teeth-grid">
-            @for (tooth of quadrantView().q1; track tooth.numero) {
-              <button type="button" class="tooth" [class.selected]="tooth.selected" [class.examined]="tooth.examined" [class.temporal]="tooth.shape === 'circle'" (click)="selectTooth(tooth.numero); saveDetail(tooth.numero)">
-                <span class="tooth-shape" [style.background]="tooth.visual.color" [style.border-color]="tooth.visual.borderColor" [class.circular]="tooth.shape === 'circle'" [class.square]="tooth.shape === 'square'"></span>
-                <strong>{{ tooth.numero }}</strong>
-              </button>
-            }
+    <div class="chart-card" aria-label="Odontograma dental FDI">
+      <div class="dental-chart">
+        @for (row of chartRows(); track row.key) {
+          <div class="dentition-row" [class.temporary-row]="row.temporary">
+            <p class="row-label">{{ row.label }}</p>
+            <div class="arch-half left-half">
+              @for (tooth of row.left; track tooth.numero) {
+                <ng-container [ngTemplateOutlet]="toothTemplate"></ng-container>
+                <ng-template #toothTemplate>
+                  <button type="button" class="tooth" [class.selected]="tooth.selected" [class.examined]="tooth.examined" [class.temporal]="row.temporary" (click)="selectTooth(tooth.numero)" [attr.aria-label]="'Pieza ' + tooth.numero">
+                    <strong>{{ tooth.numero }}</strong>
+                    @if (!row.temporary) {
+                      <svg class="tooth-svg" viewBox="0 0 60 60" role="img">
+                        <path class="surface" d="M3 3H57L44 16H16Z" [attr.fill]="surfaceColor(tooth,'arriba')" (click)="applyFinding(tooth.numero,'arriba',$event)"/>
+                        <path class="surface" d="M57 3V57L44 44V16Z" [attr.fill]="surfaceColor(tooth,'derecha')" (click)="applyFinding(tooth.numero,'derecha',$event)"/>
+                        <path class="surface" d="M57 57H3L16 44H44Z" [attr.fill]="surfaceColor(tooth,'abajo')" (click)="applyFinding(tooth.numero,'abajo',$event)"/>
+                        <path class="surface" d="M3 57V3L16 16V44Z" [attr.fill]="surfaceColor(tooth,'izquierda')" (click)="applyFinding(tooth.numero,'izquierda',$event)"/>
+                        <rect class="surface" x="16" y="16" width="28" height="28" [attr.fill]="surfaceColor(tooth,'centro')" (click)="applyFinding(tooth.numero,'centro',$event)"/>
+                      </svg>
+                    } @else {
+                      <svg class="tooth-svg" viewBox="0 0 60 60" role="img">
+                        <path class="surface" d="M30 3A27 27 0 0 1 57 30L42 30A12 12 0 0 0 30 18Z" [attr.fill]="surfaceColor(tooth,'arriba')" (click)="applyFinding(tooth.numero,'arriba',$event)"/>
+                        <path class="surface" d="M57 30A27 27 0 0 1 30 57V42A12 12 0 0 0 42 30Z" [attr.fill]="surfaceColor(tooth,'derecha')" (click)="applyFinding(tooth.numero,'derecha',$event)"/>
+                        <path class="surface" d="M30 57A27 27 0 0 1 3 30H18A12 12 0 0 0 30 42Z" [attr.fill]="surfaceColor(tooth,'abajo')" (click)="applyFinding(tooth.numero,'abajo',$event)"/>
+                        <path class="surface" d="M3 30A27 27 0 0 1 30 3V18A12 12 0 0 0 18 30Z" [attr.fill]="surfaceColor(tooth,'izquierda')" (click)="applyFinding(tooth.numero,'izquierda',$event)"/>
+                        <circle class="surface" cx="30" cy="30" r="12" [attr.fill]="surfaceColor(tooth,'centro')" (click)="applyFinding(tooth.numero,'centro',$event)"/>
+                      </svg>
+                    }
+                  </button>
+                </ng-template>
+              }
+            </div>
+            <div class="arch-divider" aria-hidden="true"></div>
+            <div class="arch-half right-half">
+              @for (tooth of row.right; track tooth.numero) {
+                <button type="button" class="tooth" [class.selected]="tooth.selected" [class.examined]="tooth.examined" [class.temporal]="row.temporary" (click)="selectTooth(tooth.numero)" [attr.aria-label]="'Pieza ' + tooth.numero">
+                  <strong>{{ tooth.numero }}</strong>
+                  <svg class="tooth-svg" viewBox="0 0 60 60" role="img">
+                    @if (!row.temporary) {
+                      <path class="surface" d="M3 3H57L44 16H16Z" [attr.fill]="surfaceColor(tooth,'arriba')" (click)="applyFinding(tooth.numero,'arriba',$event)"/><path class="surface" d="M57 3V57L44 44V16Z" [attr.fill]="surfaceColor(tooth,'derecha')" (click)="applyFinding(tooth.numero,'derecha',$event)"/><path class="surface" d="M57 57H3L16 44H44Z" [attr.fill]="surfaceColor(tooth,'abajo')" (click)="applyFinding(tooth.numero,'abajo',$event)"/><path class="surface" d="M3 57V3L16 16V44Z" [attr.fill]="surfaceColor(tooth,'izquierda')" (click)="applyFinding(tooth.numero,'izquierda',$event)"/><rect class="surface" x="16" y="16" width="28" height="28" [attr.fill]="surfaceColor(tooth,'centro')" (click)="applyFinding(tooth.numero,'centro',$event)"/>
+                    } @else {
+                      <path class="surface" d="M30 3A27 27 0 0 1 57 30L42 30A12 12 0 0 0 30 18Z" [attr.fill]="surfaceColor(tooth,'arriba')" (click)="applyFinding(tooth.numero,'arriba',$event)"/><path class="surface" d="M57 30A27 27 0 0 1 30 57V42A12 12 0 0 0 42 30Z" [attr.fill]="surfaceColor(tooth,'derecha')" (click)="applyFinding(tooth.numero,'derecha',$event)"/><path class="surface" d="M30 57A27 27 0 0 1 3 30H18A12 12 0 0 0 30 42Z" [attr.fill]="surfaceColor(tooth,'abajo')" (click)="applyFinding(tooth.numero,'abajo',$event)"/><path class="surface" d="M3 30A27 27 0 0 1 30 3V18A12 12 0 0 0 18 30Z" [attr.fill]="surfaceColor(tooth,'izquierda')" (click)="applyFinding(tooth.numero,'izquierda',$event)"/><circle class="surface" cx="30" cy="30" r="12" [attr.fill]="surfaceColor(tooth,'centro')" (click)="applyFinding(tooth.numero,'centro',$event)"/>
+                    }
+                  </svg>
+                </button>
+              }
+            </div>
           </div>
-        </div>
-        <div class="quadrant">
-          <h3>Cuadrante 2</h3>
-          <div class="teeth-grid">
-            @for (tooth of quadrantView().q2; track tooth.numero) {
-              <button type="button" class="tooth" [class.selected]="tooth.selected" [class.examined]="tooth.examined" [class.temporal]="tooth.shape === 'circle'" (click)="selectTooth(tooth.numero); saveDetail(tooth.numero)">
-                <span class="tooth-shape" [style.background]="tooth.visual.color" [style.border-color]="tooth.visual.borderColor" [class.circular]="tooth.shape === 'circle'" [class.square]="tooth.shape === 'square'"></span>
-                <strong>{{ tooth.numero }}</strong>
-              </button>
-            }
-          </div>
-        </div>
-        <div class="quadrant center">
-          <h3>Temporales</h3>
-          <div class="temporary-grid">
-            @for (tooth of quadrantView().temporales; track tooth.numero) {
-              <button type="button" class="tooth" [class.selected]="tooth.selected" [class.examined]="tooth.examined" [class.temporal]="tooth.shape === 'circle'" (click)="selectTooth(tooth.numero); saveDetail(tooth.numero)">
-                <span class="tooth-shape" [style.background]="tooth.visual.color" [style.border-color]="tooth.visual.borderColor" [class.circular]="tooth.shape === 'circle'" [class.square]="tooth.shape === 'square'"></span>
-                <strong>{{ tooth.numero }}</strong>
-              </button>
-            }
-          </div>
-        </div>
-        <div class="quadrant">
-          <h3>Cuadrante 3</h3>
-          <div class="teeth-grid">
-            @for (tooth of quadrantView().q3; track tooth.numero) {
-              <button type="button" class="tooth" [class.selected]="tooth.selected" [class.examined]="tooth.examined" [class.temporal]="tooth.shape === 'circle'" (click)="selectTooth(tooth.numero); saveDetail(tooth.numero)">
-                <span class="tooth-shape" [style.background]="tooth.visual.color" [style.border-color]="tooth.visual.borderColor" [class.circular]="tooth.shape === 'circle'" [class.square]="tooth.shape === 'square'"></span>
-                <strong>{{ tooth.numero }}</strong>
-              </button>
-            }
-          </div>
-        </div>
-        <div class="quadrant">
-          <h3>Cuadrante 4</h3>
-          <div class="teeth-grid">
-            @for (tooth of quadrantView().q4; track tooth.numero) {
-              <button type="button" class="tooth" [class.selected]="tooth.selected" [class.examined]="tooth.examined" [class.temporal]="tooth.shape === 'circle'" (click)="selectTooth(tooth.numero); saveDetail(tooth.numero)">
-                <span class="tooth-shape" [style.background]="tooth.visual.color" [style.border-color]="tooth.visual.borderColor" [class.circular]="tooth.shape === 'circle'" [class.square]="tooth.shape === 'square'"></span>
-                <strong>{{ tooth.numero }}</strong>
-              </button>
-            }
-          </div>
-        </div>
+        }
       </div>
     </div>
 
