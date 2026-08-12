@@ -18,7 +18,7 @@
     </label>
     <label class="field">Paciente<input [value]="pacienteDisplayValue()" readonly placeholder="Se completa automáticamente"></label>
     <input formControlName="paciente_id" hidden>
-    <label class="field">Odontologo<input formControlName="usuario_id" placeholder="Opcional"></label>
+    <label class="field">Odontólogo<input formControlName="usuario_id" placeholder="ID del odontólogo" appValidationFeedback></label>
     <label class="field">Fecha<input type="date" formControlName="fecha"></label>
     <label class="field">Hora inicio<input type="time" formControlName="hora_inicio"></label>
     <label class="field">Hora fin<input type="time" formControlName="hora_fin"></label>

@@ -1,5 +1,5 @@
 import { AfterViewInit, Directive, ElementRef, OnDestroy, Renderer2, inject } from '@angular/core';
-import { FormGroupDirective, NgControl, Validators } from '@angular/forms';
+import { NgControl, Validators } from '@angular/forms';
 import { Subscription, merge } from 'rxjs';
 import { fieldMessage, validationMessage } from '../utils/validation.utils';
 
@@ -11,7 +11,6 @@ export class ValidationFeedbackDirective implements AfterViewInit, OnDestroy {
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly renderer = inject(Renderer2);
   private readonly ngControl = inject(NgControl, { self: true, optional: true });
-  private readonly formGroup = inject(FormGroupDirective, { optional: true });
   private readonly subscription = new Subscription();
   private errorElement: HTMLElement | null = null;
   private markerElement: HTMLElement | null = null;
@@ -75,7 +74,11 @@ export class ValidationFeedbackDirective implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const message = fieldMessage(this.controlName(), control, Boolean(this.formGroup?.submitted));
+    // Los errores se muestran únicamente si el control fue tocado o modificado.
+    // Al intentar guardar, los componentes llaman markAllAsTouched(), por lo que
+    // no es necesario depender de FormGroupDirective.submitted, cuyo estado puede
+    // permanecer activo después de limpiar o abrir un formulario nuevo.
+    const message = fieldMessage(this.controlName(), control, false);
     if (message) {
       this.renderer.addClass(parent, 'field-invalid');
       this.renderer.setProperty(this.errorElement, 'textContent', message);

@@ -15,10 +15,6 @@ export function normalizeEmail(value: string | null | undefined): string {
   return normalizeWhitespace(value).toLowerCase();
 }
 
-export function digitsOnly(value: string | null | undefined): string {
-  return (value ?? '').replace(/\D/g, '');
-}
-
 export function emptyToNull(value: string | null | undefined): string | null {
   const normalized = normalizeWhitespace(value);
   return normalized ? normalized : null;
@@ -150,13 +146,13 @@ export function birthDate(maxAge = 120): ValidatorFn {
     if (!value) {
       return null;
     }
-    const date = new Date(`${value}T00:00:00`);
-    if (Number.isNaN(date.getTime())) {
+    const date = parseIsoDate(value);
+    if (!date) {
       return { invalidDate: true };
     }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (date > today) {
+    if (date >= today) {
       return { futureDate: true };
     }
     let age = today.getFullYear() - date.getFullYear();
@@ -208,6 +204,18 @@ export function nonNegativeNumber(): ValidatorFn {
     }
     const number = Number(value);
     return Number.isFinite(number) && number >= 0 ? null : { nonNegative: true };
+  };
+}
+
+export function maxTwoDecimals(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const value = control.value;
+    if (value === null || value === undefined || value === '') return null;
+    const text = String(value).trim();
+    const number = Number(text);
+    return Number.isFinite(number) && /^\d+(?:\.\d{1,2})?$/.test(text)
+      ? null
+      : { maxTwoDecimals: true };
   };
 }
 
@@ -263,16 +271,6 @@ export function emergencyContactPair(): ValidatorFn {
   };
 }
 
-export function discountNotGreaterThanSubtotal(): ValidatorFn {
-  return (control: AbstractControl): ValidationErrors | null => {
-    const subtotal = Number(control.get('subtotal')?.value) || 0;
-    const discount = Number(control.get('descuento')?.value) || 0;
-    const invalid = discount > subtotal;
-    setControlValidationError(control.get('descuento'), 'discountExceedsSubtotal', invalid);
-    return invalid ? { discountExceedsSubtotal: true } : null;
-  };
-}
-
 export function validationMessage(controlName: string, errors: ValidationErrors | null | undefined): string | null {
   if (!errors) {
     return null;
@@ -291,7 +289,7 @@ export function validationMessage(controlName: string, errors: ValidationErrors 
   if (errors['minTrimLength']) { return 'Debe ingresar al menos 2 caracteres.'; }
   if (errors['maxTrimLength']) { return 'El texto ingresado es demasiado largo.'; }
   if (errors['whitespaceOnly']) { return 'Este campo no puede contener solo espacios.'; }
-  if (errors['futureDate']) { return controlName === 'fecha_nacimiento' ? 'La fecha de nacimiento no puede ser futura.' : 'La fecha no puede ser futura.'; }
+  if (errors['futureDate']) { return controlName === 'fecha_nacimiento' ? 'La fecha de nacimiento debe ser anterior a hoy.' : 'La fecha no puede ser futura.'; }
   if (errors['pastDate']) { return 'La fecha no puede ser anterior a hoy.'; }
   if (errors['invalidDate']) { return controlName === 'fecha_nacimiento' ? 'La fecha de nacimiento ingresada no es válida.' : 'La fecha ingresada no es válida.'; }
   if (errors['maxAge']) { return 'La edad calculada no es válida.'; }
@@ -300,6 +298,7 @@ export function validationMessage(controlName: string, errors: ValidationErrors 
   if (errors['phoneMobilePrefix']) { return 'El número celular debe comenzar con 09.'; }
   if (errors['email']) { return 'Ingrese un correo electrónico válido.'; }
   if (errors['nonNegative'] || errors['min']) { return 'El valor ingresado no puede ser negativo.'; }
+  if (errors['maxTwoDecimals']) { return 'Ingrese un número válido con máximo 2 decimales.'; }
   if (errors['integerMin']) { return 'Ingrese un número entero válido.'; }
   if (errors['invalidOption']) { return 'Seleccione una opción válida.'; }
   if (errors['timeOrder']) { return 'La hora final debe ser posterior a la hora inicial.'; }
@@ -353,6 +352,19 @@ function timeToMinutes(value: string): number {
     return 0;
   }
   return hours * 60 + minutes;
+}
+
+function parseIsoDate(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+    ? date
+    : null;
 }
 
 function setControlValidationError(control: AbstractControl | null | undefined, key: string, active: boolean): void {

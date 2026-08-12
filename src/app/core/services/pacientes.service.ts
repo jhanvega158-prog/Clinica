@@ -162,7 +162,19 @@ export class PacientesService extends BaseRepository<Paciente, PacienteInsert, P
     }
     const { data, error } = await query.order('created_at', { ascending: false });
     this.throwIfError(error);
-    return (data ?? []) as unknown as DocumentoClinico[];
+    return Promise.all(((data ?? []) as unknown as DocumentoClinico[]).map(async (documento) => ({
+      ...documento,
+      url: await this.signedUrl(documento.bucket || (documento.tipo === 'radiografia' ? environment.storageBuckets.radiografias : environment.storageBuckets.documentos), documento.path)
+    })));
+  }
+
+  async fotoUrl(paciente: Paciente): Promise<string | null> {
+    if (!paciente.foto_url) return null;
+    const marker = `/object/public/${environment.storageBuckets.pacientes}/`;
+    const markerIndex = paciente.foto_url.indexOf(marker);
+    if (markerIndex < 0) return paciente.foto_url;
+    const path = decodeURIComponent(paciente.foto_url.slice(markerIndex + marker.length));
+    return this.signedUrl(environment.storageBuckets.pacientes, path);
   }
 
   async uploadFoto(pacienteId: string, file: File): Promise<string> {
@@ -193,11 +205,12 @@ export class PacientesService extends BaseRepository<Paciente, PacienteInsert, P
     this.throwStorageError(error);
     const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(path);
 
-    const payload: Omit<DocumentoClinicoInsert, 'bucket'> = {
+    const payload = {
       paciente_id: pacienteId,
       historia_id: historiaId,
       tipo,
       nombre: file.name,
+      bucket,
       path,
       url: publicData.publicUrl,
       mime_type: file.type || null,
@@ -241,6 +254,13 @@ export class PacientesService extends BaseRepository<Paciente, PacienteInsert, P
     if (error) {
       throw new Error(error.message);
     }
+  }
+
+  private async signedUrl(bucket: string, path: string): Promise<string> {
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+    this.throwStorageError(error);
+    if (!data?.signedUrl) throw new Error('No se pudo generar el enlace seguro del archivo.');
+    return data.signedUrl;
   }
 
   private validatePayload<T extends PacienteInsert | PacienteUpdate>(payload: T): T {

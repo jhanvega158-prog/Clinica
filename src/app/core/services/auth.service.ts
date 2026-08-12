@@ -13,13 +13,15 @@ export class AuthService {
   readonly profile = signal<Usuario | null>(null);
   readonly localAdmin = signal(false);
   readonly loading = signal(false);
+  readonly passwordRecovery = signal(false);
   readonly authenticated = computed(() => Boolean(this.session()) || this.localAdmin());
 
   constructor(private readonly router: Router) {
     void this.initialize();
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange((event, session) => {
       this.session.set(session);
       this.user.set(session?.user ?? null);
+      this.passwordRecovery.set(event === 'PASSWORD_RECOVERY');
       void this.loadProfile();
     });
   }
@@ -91,6 +93,12 @@ export class AuthService {
       redirectTo: window.location.origin
     });
     this.throwAuthError(error);
+  }
+
+  async updatePassword(password: string): Promise<void> {
+    const { error } = await supabase.auth.updateUser({ password });
+    this.throwAuthError(error);
+    this.passwordRecovery.set(false);
   }
 
   async isAuthenticated(): Promise<boolean> {

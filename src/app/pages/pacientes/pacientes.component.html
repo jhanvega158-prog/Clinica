@@ -18,7 +18,6 @@
 <form class="panel" [formGroup]="form" (ngSubmit)="save()">
   <h2>{{ selectedId() ? 'Editar paciente' : 'Nuevo paciente' }}</h2>
   <div class="grid">
-    <label class="field">Historia<input formControlName="numero_historia"></label>
     <label class="field">Cedula<input formControlName="cedula"></label>
     <label class="field">Nombres<input formControlName="nombres"></label>
     <label class="field">Apellidos<input formControlName="apellidos"></label>
@@ -35,7 +34,7 @@
     <label class="field span-2">Antecedentes<textarea rows="3" formControlName="antecedentes"></textarea></label>
   </div>
   @if (form.invalid && form.touched) {
-    <p class="error-text">Completa historia, cedula, nombres y apellidos.</p>
+    <p class="error-text">Completa los campos obligatorios indicados.</p>
   }
   <div class="actions">
     <button type="submit" class="btn primary" [disabled]="loading()">Guardar</button>
@@ -50,11 +49,17 @@
       <tbody>
         @for (paciente of pacientes(); track paciente.id) {
           <tr>
-            <td><strong>{{ paciente.apellidos }} {{ paciente.nombres }}</strong><br><span class="badge">{{ paciente.numero_historia }}</span></td>
+            <td><strong>{{ paciente.apellidos }} {{ paciente.nombres }}</strong></td>
             <td>{{ paciente.cedula }}</td>
             <td>{{ paciente.telefono || '-' }}<br>{{ paciente.email || '-' }}</td>
             <td>{{ paciente.activo ? 'Activo' : 'Inactivo' }}</td>
             <td>
+              @if (fotoDe(paciente.id); as fotoUrl) {
+                <a class="file-action" [href]="fotoUrl" target="_blank" rel="noopener">Ver foto</a>
+              }
+              @for (documento of documentosDe(paciente.id); track documento.id) {
+                <a class="file-action" [href]="documento.url" target="_blank" rel="noopener">{{ documento.tipo === 'radiografia' ? 'Ver RX' : 'Ver Doc' }}</a>
+              }
               <label class="file-action">Foto<input type="file" accept="image/*" (change)="upload($event,paciente,'foto')"></label>
               <label class="file-action">RX<input type="file" accept="image/*,.pdf" (change)="upload($event,paciente,'radiografia')"></label>
               <label class="file-action">Doc<input type="file" (change)="upload($event,paciente,'documento')"></label>

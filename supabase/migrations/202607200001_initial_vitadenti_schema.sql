@@ -1,5 +1,4 @@
--- Clinica VitaDenti - Supabase initial schema
--- Ejecutar en el SQL editor de Supabase con una base vacia.
+
 
 begin;
 

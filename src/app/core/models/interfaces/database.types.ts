@@ -345,7 +345,7 @@ export interface ArchivoClinico extends Auditable {
 
 export type DocumentoClinico = Pick<
   ArchivoClinico,
-  'id' | 'paciente_id' | 'historia_id' | 'tipo' | 'nombre' | 'path' | 'url' | 'mime_type' | 'size' | 'created_at' | 'updated_at'
+  'id' | 'paciente_id' | 'historia_id' | 'tipo' | 'nombre' | 'bucket' | 'path' | 'url' | 'mime_type' | 'size' | 'created_at' | 'updated_at'
 >;
 
 export type EstadoFactura = 'pendiente' | 'completado' | 'anulado';

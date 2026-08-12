@@ -11,6 +11,7 @@ import {
   ecuadorianCedula,
   emptyToNull,
   maxTrimLength,
+  maxTwoDecimals,
   nonNegativeNumber,
   normalizeWhitespace,
   notBlankOptional,
@@ -45,7 +46,7 @@ export class TratamientosComponent implements OnInit {
     prescripcion: ['', [notBlankOptional(), maxTrimLength(500)]],
     fecha: [todayIso(), [Validators.required, notFutureDate()]],
     estado: ['pendiente' as EstadoRegistro, [Validators.required, allowedValues(['pendiente', 'activo', 'completado', 'anulado'] as const)]],
-    costo: [0, [nonNegativeNumber()]],
+    costo: [0, [Validators.required, nonNegativeNumber(), maxTwoDecimals()]],
     notas: ['', [notBlankOptional(), maxTrimLength(300)]]
   });
 
@@ -89,7 +90,7 @@ export class TratamientosComponent implements OnInit {
       this.pacienteError.set('Busca un paciente por cédula antes de guardar el tratamiento.');
       return;
     }
-    const payload: TratamientoInsert = { paciente_id: raw.paciente_id, historia_id: emptyToNull(raw.historia_id), diagnostico: normalizeWhitespace(raw.diagnostico), procedimiento: normalizeWhitespace(raw.procedimiento), prescripcion: emptyToNull(raw.prescripcion), fecha: raw.fecha, estado: raw.estado, costo: Number(raw.costo) || null, notas: emptyToNull(raw.notas) };
+    const payload: TratamientoInsert = { paciente_id: raw.paciente_id, historia_id: emptyToNull(raw.historia_id), diagnostico: normalizeWhitespace(raw.diagnostico), procedimiento: normalizeWhitespace(raw.procedimiento), prescripcion: emptyToNull(raw.prescripcion), fecha: raw.fecha, estado: raw.estado, costo: Number(raw.costo), notas: emptyToNull(raw.notas) };
     try {
       const id = this.selectedId();
       id ? await this.tratamientosService.update(id, payload) : await this.tratamientosService.create(payload);

@@ -30,17 +30,6 @@ export function getToothShape(pieza: number): 'square' | 'circle' {
   return (pieza >= 51 && pieza <= 65) || (pieza >= 71 && pieza <= 85) ? 'circle' : 'square';
 }
 
-export function buildConditionCode(caries: boolean, restauracion: boolean): string {
-  const parts = [] as string[];
-  if (caries) {
-    parts.push('caries');
-  }
-  if (restauracion) {
-    parts.push('restauracion');
-  }
-  return parts.length ? parts.join('|') : 'sin_hallazgo';
-}
-
 export function parseConditionCode(condicion: string | null | undefined): { caries: boolean; restauracion: boolean } {
   const normalized = (condicion ?? '').toLowerCase();
   return {

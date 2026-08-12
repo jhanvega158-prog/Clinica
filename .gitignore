@@ -1,0 +1,19 @@
+# Dependencies
+/node_modules/
+
+# Angular build output and cache
+/dist/
+/.angular/
+/out-tsc/
+
+# Editors
+/.idea/
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/launch.json
+!/.vscode/tasks.json
+
+# Logs and operating-system files
+*.log
+.DS_Store
+Thumbs.db

@@ -40,7 +40,7 @@ export class AgendaComponent implements OnInit {
   readonly form = this.fb.nonNullable.group({
     cedula: ['', [requiredTrim(), ecuadorianCedula()]],
     paciente_id: ['', Validators.required],
-    usuario_id: [''],
+    usuario_id: ['', Validators.required],
     fecha: [todayIso(), [Validators.required, notPastDate()]],
     hora_inicio: [currentTime(), Validators.required],
     hora_fin: [''],
@@ -113,6 +113,11 @@ export class AgendaComponent implements OnInit {
     const raw = this.form.getRawValue();
     if (!raw.paciente_id) {
       this.pacienteError.set('Busca un paciente por cédula antes de guardar la cita.');
+      return;
+    }
+    if (!isValidUuid(raw.usuario_id)) {
+      this.form.controls.usuario_id.setErrors({ invalidOption: true });
+      this.form.controls.usuario_id.markAsTouched();
       return;
     }
     const payload: AgendaInsert = {

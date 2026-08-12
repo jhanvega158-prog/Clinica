@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PacientesService } from '../../core/services/pacientes.service';
 import { ToastService } from '../../core/services/toast.service';
-import { Paciente, PacienteInsert, SexoPaciente } from '../../core/models/interfaces/database.types';
+import { DocumentoClinico, Paciente, PacienteInsert, SexoPaciente } from '../../core/models/interfaces/database.types';
 import { ValidationFeedbackDirective } from '../../shared/directives/validation-feedback.directive';
 import {
   allowedValues,
@@ -38,6 +38,8 @@ export class PacientesComponent implements OnInit {
   readonly loading = this.pacientesService.loading;
   readonly searchTerm = signal('');
   readonly hasSearched = signal(false);
+  readonly documentosPorPaciente = signal<Map<string, DocumentoClinico[]>>(new Map());
+  readonly fotosPorPaciente = signal<Map<string, string>>(new Map());
 
   readonly form = this.fb.nonNullable.group({
     numero_historia: ['', [requiredTrim(), maxTrimLength(30)]],
@@ -71,7 +73,15 @@ export class PacientesComponent implements OnInit {
     if (!term) { this.pacientes.set([]); this.hasSearched.set(false); return; }
     this.hasSearched.set(true);
     try {
-      this.pacientes.set(await this.pacientesService.search(term));
+      const pacientes = await this.pacientesService.search(term);
+      this.pacientes.set(pacientes);
+      const documentos = await Promise.all(pacientes.map(async (paciente) => [
+        paciente.id,
+        await this.pacientesService.listarDocumentos(paciente.id)
+      ] as const));
+      this.documentosPorPaciente.set(new Map(documentos));
+      const fotos = await Promise.all(pacientes.map(async (paciente) => [paciente.id, await this.pacientesService.fotoUrl(paciente)] as const));
+      this.fotosPorPaciente.set(new Map(fotos.filter((item): item is readonly [string, string] => Boolean(item[1]))));
     } catch (error) {
       this.toast.error(error instanceof Error ? error.message : 'Busqueda no disponible');
     }
@@ -83,6 +93,16 @@ export class PacientesComponent implements OnInit {
     this.searchTerm.set('');
     this.hasSearched.set(false);
     this.pacientes.set([]);
+    this.documentosPorPaciente.set(new Map());
+    this.fotosPorPaciente.set(new Map());
+  }
+
+  documentosDe(pacienteId: string): DocumentoClinico[] {
+    return this.documentosPorPaciente().get(pacienteId) ?? [];
+  }
+
+  fotoDe(pacienteId: string): string | null {
+    return this.fotosPorPaciente().get(pacienteId) ?? null;
   }
 
   edit(paciente: Paciente): void {
@@ -129,6 +149,7 @@ export class PacientesComponent implements OnInit {
       return;
     }
     this.normalizeForm();
+    this.ensureInternalHistoryNumber();
     this.validateDuplicados();
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -219,6 +240,14 @@ export class PacientesComponent implements OnInit {
       alergias: normalizeWhitespace(raw.alergias),
       antecedentes: normalizeWhitespace(raw.antecedentes)
     }, { emitEvent: false });
+  }
+
+  private ensureInternalHistoryNumber(): void {
+    if (normalizeWhitespace(this.form.controls.numero_historia.value)) return;
+    const cedula = normalizeWhitespace(this.form.controls.cedula.value);
+    if (cedula) {
+      this.form.controls.numero_historia.setValue(`PAC-${cedula}`, { emitEvent: false });
+    }
   }
 
   private validateDuplicados(): void {
