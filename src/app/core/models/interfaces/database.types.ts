@@ -202,6 +202,10 @@ export interface OdontogramaDetalle extends Auditable {
   estado_pieza_id?: EntityId | null;
   superficie: string | null;
   condicion: string;
+  endodoncia: 'realizada' | 'por_realizar' | null;
+  corona: 'realizada' | 'por_realizar' | null;
+  sellante: 'realizado' | 'por_realizar' | null;
+  extraccion: 'realizada' | 'por_realizar' | null;
   movilidad: number | null;
   recesion: number | null;
   notas: string | null;

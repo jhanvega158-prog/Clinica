@@ -1,11 +1,16 @@
 export type FindingKind = 'caries' | 'restauracion' | 'movilidad' | 'recesion';
 export type ToothSurface = 'arriba' | 'derecha' | 'abajo' | 'izquierda' | 'centro';
 
+export const ODONTOGRAM_COLORS = {
+  porRealizar: '#dc2626',
+  realizado: '#2563eb'
+} as const;
+
 export const TOOTH_SURFACES: ToothSurface[] = ['arriba', 'derecha', 'abajo', 'izquierda', 'centro'];
 
 const findingColors: Record<FindingKind, string> = {
-  caries: '#ef4444',
-  restauracion: '#3b82f6',
+  caries: ODONTOGRAM_COLORS.porRealizar,
+  restauracion: ODONTOGRAM_COLORS.realizado,
   movilidad: '#facc15',
   recesion: '#f97316'
 };
@@ -22,6 +27,10 @@ export interface ToothVisualState {
 
 export interface ToothDetailSnapshot {
   condicion?: string | null;
+  endodoncia?: 'realizada' | 'por_realizar' | null;
+  corona?: 'realizada' | 'por_realizar' | null;
+  sellante?: 'realizado' | 'por_realizar' | null;
+  extraccion?: 'realizada' | 'por_realizar' | null;
   movilidad?: number | null;
   recesion?: number | null;
 }
@@ -45,11 +54,11 @@ export function getToothVisualState(detail?: ToothDetailSnapshot | null): ToothV
   const recession = Number(detail?.recesion ?? 0) > 0 || condition.includes('recesion');
 
   if (caries) {
-    return { color: '#ef4444', borderColor: '#dc2626', label: 'Caries', active: true };
+    return { color: ODONTOGRAM_COLORS.porRealizar, borderColor: ODONTOGRAM_COLORS.porRealizar, label: 'Caries', active: true };
   }
 
   if (restauracion) {
-    return { color: '#3b82f6', borderColor: '#2563eb', label: 'Restauración', active: true };
+    return { color: ODONTOGRAM_COLORS.realizado, borderColor: ODONTOGRAM_COLORS.realizado, label: 'Restauración', active: true };
   }
 
   if (mobility) {

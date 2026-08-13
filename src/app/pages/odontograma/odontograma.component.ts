@@ -20,7 +20,7 @@ import { HistoriaService } from '../../core/services/historia.service';
 import { AuthService } from '../../core/services/auth.service';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import { getSurfaceColor, getToothShape, getToothVisualState, parseSurfaceFindings, serializeSurfaceFindings, type FindingKind, type ToothSurface } from './odontograma-helpers';
+import { getSurfaceColor, getToothShape, getToothVisualState, ODONTOGRAM_COLORS, parseSurfaceFindings, serializeSurfaceFindings, type FindingKind, type ToothSurface } from './odontograma-helpers';
 import { ValidationFeedbackDirective } from '../../shared/directives/validation-feedback.directive';
 import {
   allowedValues,
@@ -43,6 +43,8 @@ interface ToothViewModel {
   examined: boolean;
   visual: ReturnType<typeof getToothVisualState>;
 }
+
+type FindingTool = FindingKind | 'endodoncia_por_realizar' | 'endodoncia_realizada' | 'corona_por_realizar' | 'corona_realizada' | 'sellante_por_realizar' | 'sellante_realizado' | 'extraccion_por_realizar' | 'extraccion_realizada';
 
 @Component({
   selector: 'app-odontograma',
@@ -73,17 +75,23 @@ export class OdontogramaComponent implements OnInit {
   readonly generandoPdf = signal(false);
   readonly pacientePdf = signal<{ paciente: Paciente; edad: number | null } | null>(null);
   readonly selectedTooth = signal<number | null>(null);
-  readonly selectedFinding = signal<FindingKind>('caries');
+  readonly selectedFinding = signal<FindingTool>('caries');
   readonly piezas = [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28,48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38,55,54,53,52,51,61,62,63,64,65,85,84,83,82,81,71,72,73,74,75];
   readonly form = this.fb.nonNullable.group({ cedula: ['', [requiredTrim(), ecuadorianCedula()]], paciente_id: ['', Validators.required], historia_id: [''], tipo: ['inicial' as 'inicial' | 'evolucion', [Validators.required, allowedValues(['inicial', 'evolucion'] as const)]], estado: ['activo' as EstadoRegistro, [Validators.required, allowedValues(['activo', 'completado', 'anulado'] as const)]], observaciones: ['', [notBlankOptional(), maxTrimLength(500)]] });
-  readonly detailForm = this.fb.nonNullable.group({ pieza: [11, [Validators.required, integerMin(11)]], superficie: ['', [notBlankOptional(), maxTrimLength(40)]], movilidad: [0, [Validators.min(0), Validators.max(3)]], recesion: [0, [Validators.min(0), Validators.max(9)]], notas: ['', [notBlankOptional(), maxTrimLength(300)]] });
+  readonly detailForm = this.fb.nonNullable.group({ pieza: [11, [Validators.required, integerMin(11)]], superficie: ['', [notBlankOptional(), maxTrimLength(40)]], movilidad: [0, [Validators.min(0), Validators.max(3)]], recesion: [0, [Validators.min(0), Validators.max(9)]], endodoncia: ['' as '' | 'por_realizar' | 'realizada'], condicion: ['', [notBlankOptional(), maxTrimLength(500)]], notas: ['', [notBlankOptional(), maxTrimLength(300)]] });
   readonly cpoForm = this.fb.nonNullable.group({ cariadas: [0, [integerMin(0)]], perdidas: [0, [integerMin(0)]], obturadas: [0, [integerMin(0)]], ceo: [0, [integerMin(0)]], total: [0, [integerMin(0)]], observaciones: ['', [notBlankOptional(), maxTrimLength(300)]] });
   readonly indicadoresForm = this.fb.nonNullable.group({ higiene_placa: [false], higiene_calculo: [false], higiene_gingivitis: [false], periodontal_leve: [false], periodontal_moderada: [false], periodontal_severa: [false], oclusion_clase_i: [false], oclusion_clase_ii: [false], oclusion_clase_iii: [false], fluorosis_leve: [false], fluorosis_moderada: [false], fluorosis_severa: [false], observaciones: ['', [notBlankOptional(), maxTrimLength(300)]] });
   readonly findings = [
-    { key: 'caries' as const, label: 'Caries', color: '#ef4444', description: 'Presencia de lesión cariosa' },
-    { key: 'restauracion' as const, label: 'Restauración', color: '#3b82f6', description: 'Pieza restaurada' },
-    { key: 'movilidad' as const, label: 'Movilidad', color: '#facc15', description: 'Movilidad periodontal' },
-    { key: 'recesion' as const, label: 'Recesión', color: '#f97316', description: 'Recesión gingival' }
+    { key: 'caries' as const, label: 'Caries', color: ODONTOGRAM_COLORS.porRealizar, symbol: 'dot', description: 'Presencia de lesión cariosa' },
+    { key: 'restauracion' as const, label: 'Restauración / Obturación', color: ODONTOGRAM_COLORS.realizado, symbol: 'dot', description: 'Superficie restaurada' },
+    { key: 'endodoncia_por_realizar' as const, label: 'Endodoncia por realizar', color: ODONTOGRAM_COLORS.porRealizar, symbol: 'triangle', description: 'Endodoncia pendiente' },
+    { key: 'endodoncia_realizada' as const, label: 'Endodoncia realizada', color: ODONTOGRAM_COLORS.realizado, symbol: 'triangle', description: 'Endodoncia completada' },
+    { key: 'corona_por_realizar' as const, label: 'Corona por realizar', color: ODONTOGRAM_COLORS.porRealizar, symbol: 'square', description: 'Corona pendiente' },
+    { key: 'corona_realizada' as const, label: 'Corona realizada', color: ODONTOGRAM_COLORS.realizado, symbol: 'square', description: 'Corona completada' },
+    { key: 'sellante_por_realizar' as const, label: 'Sellante por realizar', color: ODONTOGRAM_COLORS.porRealizar, symbol: 'sealant', description: 'Sellante pendiente' },
+    { key: 'sellante_realizado' as const, label: 'Sellante realizado', color: ODONTOGRAM_COLORS.realizado, symbol: 'sealant', description: 'Sellante aplicado' },
+    { key: 'extraccion_por_realizar' as const, label: 'Extracción por realizar', color: ODONTOGRAM_COLORS.porRealizar, symbol: 'cross', description: 'Extracción pendiente' },
+    { key: 'extraccion_realizada' as const, label: 'Pérdida', color: ODONTOGRAM_COLORS.realizado, symbol: 'cross', description: 'Pieza extraída o perdida' }
   ];
   readonly professionalName = computed(() => {
     const profile = this.auth.profile();
@@ -178,7 +186,7 @@ export class OdontogramaComponent implements OnInit {
     this.form.reset({ cedula: '', paciente_id: '', historia_id: '', tipo: 'inicial', estado: 'activo', observaciones: '' });
     this.cpoForm.reset({ cariadas: 0, perdidas: 0, obturadas: 0, ceo: 0, total: 0, observaciones: '' });
     this.indicadoresForm.reset({ higiene_placa: false, higiene_calculo: false, higiene_gingivitis: false, periodontal_leve: false, periodontal_moderada: false, periodontal_severa: false, oclusion_clase_i: false, oclusion_clase_ii: false, oclusion_clase_iii: false, fluorosis_leve: false, fluorosis_moderada: false, fluorosis_severa: false, observaciones: '' });
-    this.detailForm.reset({ pieza: 11, superficie: '', movilidad: 0, recesion: 0, notas: '' });
+    this.detailForm.reset({ pieza: 11, superficie: '', movilidad: 0, recesion: 0, endodoncia: '', condicion: '', notas: '' });
     this.form.markAsPristine();
     this.form.markAsUntouched();
     this.detailForm.markAsPristine();
@@ -238,7 +246,11 @@ export class OdontogramaComponent implements OnInit {
       odontograma_id: odontogramaId,
       pieza: selectedPieza,
       superficie: emptyToNull(raw.superficie),
-      condicion: this.buildConditionValue(selectedPieza),
+      condicion: this.buildStoredCondition(selectedPieza, raw.condicion),
+      endodoncia: raw.endodoncia || null,
+      corona: this.currentDetail(selectedPieza)?.corona ?? null,
+      sellante: this.currentDetail(selectedPieza)?.sellante ?? null,
+      extraccion: this.currentDetail(selectedPieza)?.extraccion ?? null,
       movilidad: Number(raw.movilidad) || null,
       recesion: Number(raw.recesion) || null,
       notas: emptyToNull(raw.notas)
@@ -390,7 +402,8 @@ export class OdontogramaComponent implements OnInit {
 
   selectTooth(pieza: number): void {
     this.selectedTooth.set(pieza);
-    this.detailForm.patchValue({ pieza, superficie: this.currentDetail(pieza)?.superficie ?? '', movilidad: this.currentDetail(pieza)?.movilidad ?? 0, recesion: this.currentDetail(pieza)?.recesion ?? 0, notas: this.currentDetail(pieza)?.notas ?? '' });
+    const detail = this.currentDetail(pieza);
+    this.detailForm.patchValue({ pieza, superficie: detail?.superficie ?? '', movilidad: detail?.movilidad ?? 0, recesion: detail?.recesion ?? 0, endodoncia: detail?.endodoncia ?? '', condicion: this.clinicalCondition(detail?.condicion), notas: detail?.notas ?? '' });
   }
 
   async downloadPdf(): Promise<void> {
@@ -445,20 +458,34 @@ export class OdontogramaComponent implements OnInit {
     return getSurfaceColor(tooth.detail, surface);
   }
 
+  endodonticColor(tooth: ToothViewModel): string {
+    return tooth.detail?.endodoncia === 'realizada' ? ODONTOGRAM_COLORS.realizado : ODONTOGRAM_COLORS.porRealizar;
+  }
+
+  treatmentColor(status: string | null | undefined): string {
+    return status === 'realizada' || status === 'realizado' ? ODONTOGRAM_COLORS.realizado : ODONTOGRAM_COLORS.porRealizar;
+  }
+
   async applyFinding(pieza: number, surface: ToothSurface, event: Event): Promise<void> {
     event.stopPropagation();
     this.selectTooth(pieza);
+    const finding = this.selectedFinding();
+    if (finding !== 'caries' && finding !== 'restauracion') {
+      await this.applyWholeToothFinding(pieza, finding);
+      return;
+    }
     try {
       const { odontogramaId } = await this.ensureContext();
       const current = this.currentDetail(pieza);
       const states = parseSurfaceFindings(current?.superficie);
-      states[surface] = this.selectedFinding();
+      states[surface] = finding;
       const raw = this.detailForm.getRawValue();
-      const conditionParts = new Set((current?.condicion ?? '').split('|').filter((item) => item && item !== 'sin_hallazgo'));
-      conditionParts.add(this.selectedFinding());
+      const conditionParts = new Set(this.technicalConditionCodes(current?.condicion));
+      conditionParts.add(finding);
       await this.odontogramaService.guardarDetalle({
         odontograma_id: odontogramaId, pieza, superficie: serializeSurfaceFindings(states),
-        condicion: [...conditionParts].join('|'), movilidad: Number(raw.movilidad) || null,
+        condicion: this.mergeCondition([...conditionParts], raw.condicion), endodoncia: current?.endodoncia ?? (raw.endodoncia || null),
+        corona: current?.corona ?? null, sellante: current?.sellante ?? null, extraccion: current?.extraccion ?? null, movilidad: Number(raw.movilidad) || null,
         recesion: Number(raw.recesion) || null, notas: emptyToNull(raw.notas)
       });
       await this.loadDetails(odontogramaId);
@@ -471,6 +498,40 @@ export class OdontogramaComponent implements OnInit {
   private teethInOrder(numbers: number[]): ToothViewModel[] {
     const view = this.odontogramaView();
     return numbers.map((number) => view.find((tooth) => tooth.numero === number)!).filter(Boolean);
+  }
+
+  private async applyWholeToothFinding(pieza: number, finding: Exclude<FindingTool, 'caries' | 'restauracion'>): Promise<void> {
+    try {
+      const { odontogramaId } = await this.ensureContext();
+      const current = this.currentDetail(pieza);
+      const raw = this.detailForm.getRawValue();
+      const payload: OdontogramaDetalleInsert = {
+        odontograma_id: odontogramaId, pieza,
+        superficie: current?.superficie ?? emptyToNull(raw.superficie),
+        condicion: current?.condicion ?? this.mergeCondition([], raw.condicion),
+        endodoncia: current?.endodoncia ?? null,
+        corona: current?.corona ?? null,
+        sellante: current?.sellante ?? null,
+        extraccion: current?.extraccion ?? null,
+        movilidad: current?.movilidad ?? (Number(raw.movilidad) || null),
+        recesion: current?.recesion ?? (Number(raw.recesion) || null),
+        notas: current?.notas ?? emptyToNull(raw.notas)
+      };
+      if (finding === 'endodoncia_por_realizar') payload.endodoncia = 'por_realizar';
+      if (finding === 'endodoncia_realizada') payload.endodoncia = 'realizada';
+      if (finding === 'corona_por_realizar') payload.corona = 'por_realizar';
+      if (finding === 'corona_realizada') payload.corona = 'realizada';
+      if (finding === 'sellante_por_realizar') payload.sellante = 'por_realizar';
+      if (finding === 'sellante_realizado') payload.sellante = 'realizado';
+      if (finding === 'extraccion_por_realizar') payload.extraccion = 'por_realizar';
+      if (finding === 'extraccion_realizada') payload.extraccion = 'realizada';
+      await this.odontogramaService.guardarDetalle(payload);
+      await this.loadDetails(odontogramaId);
+      this.selectTooth(pieza);
+      await this.calculate();
+    } catch (error) {
+      this.toast.error(error instanceof Error ? error.message : 'No se pudo guardar hallazgo');
+    }
   }
 
   private currentDetail(pieza: number): OdontogramaDetalle | null {
@@ -534,6 +595,30 @@ export class OdontogramaComponent implements OnInit {
       return normalized.includes('movilidad') ? 'movilidad|recesion' : 'recesion';
     }
     return 'sin_hallazgo';
+  }
+
+  private buildStoredCondition(pieza: number, clinicalCondition: string): string {
+    const technical = this.technicalConditionCodes(this.currentDetail(pieza)?.condicion);
+    const finding = this.selectedFinding();
+    if (finding === 'caries' || finding === 'restauracion') technical.push(finding);
+    return this.mergeCondition(technical, clinicalCondition);
+  }
+
+  private mergeCondition(technical: string[], clinicalCondition: string): string {
+    const text = normalizeWhitespace(clinicalCondition);
+    const parts = [...new Set(technical.filter(Boolean))];
+    if (text) parts.push(text);
+    return parts.join('|') || 'sin_hallazgo';
+  }
+
+  private clinicalCondition(value: string | null | undefined): string {
+    const technical = new Set(['caries', 'restauracion', 'movilidad', 'recesion', 'sin_hallazgo']);
+    return (value ?? '').split('|').filter((part) => part && !technical.has(part.toLowerCase())).join(' | ');
+  }
+
+  private technicalConditionCodes(value: string | null | undefined): string[] {
+    const technical = new Set(['caries', 'restauracion', 'movilidad', 'recesion']);
+    return (value ?? '').split('|').map((part) => part.toLowerCase()).filter((part) => technical.has(part));
   }
 
   private async loadCpoManual(odontogramaId: string): Promise<void> {
@@ -621,6 +706,7 @@ export class OdontogramaComponent implements OnInit {
     const raw = this.detailForm.getRawValue();
     this.detailForm.patchValue({
       superficie: normalizeWhitespace(raw.superficie),
+      condicion: normalizeWhitespace(raw.condicion),
       notas: normalizeWhitespace(raw.notas)
     }, { emitEvent: false });
   }

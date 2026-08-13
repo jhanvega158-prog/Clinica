@@ -190,6 +190,18 @@ export class OdontogramaService extends BaseRepository<Odontograma, OdontogramaI
   private validateDetalle(payload: OdontogramaDetalleInsert): void {
     if (!this.isValidPieza(payload.pieza)) { throw new Error('Seleccione una pieza dental válida.'); }
     if (!normalizeWhitespace(payload.condicion)) { throw new Error('El diagnóstico es obligatorio.'); }
+    if (payload.endodoncia && !['realizada', 'por_realizar'].includes(payload.endodoncia)) {
+      throw new Error('Seleccione un estado de endodoncia válido.');
+    }
+    if (payload.corona && !['realizada', 'por_realizar'].includes(payload.corona)) {
+      throw new Error('Seleccione un estado de corona válido.');
+    }
+    if (payload.sellante && !['realizado', 'por_realizar'].includes(payload.sellante)) {
+      throw new Error('Seleccione un estado de sellante válido.');
+    }
+    if (payload.extraccion && !['realizada', 'por_realizar'].includes(payload.extraccion)) {
+      throw new Error('Seleccione un estado de extracción válido.');
+    }
     if (payload.movilidad !== null && payload.movilidad !== undefined && (payload.movilidad < 0 || payload.movilidad > 3)) {
       throw new Error('Ingrese un valor de movilidad válido.');
     }
