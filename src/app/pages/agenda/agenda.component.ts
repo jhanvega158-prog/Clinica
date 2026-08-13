@@ -40,7 +40,7 @@ export class AgendaComponent implements OnInit {
   readonly form = this.fb.nonNullable.group({
     cedula: ['', [requiredTrim(), ecuadorianCedula()]],
     paciente_id: ['', Validators.required],
-    usuario_id: ['', Validators.required],
+    odontologo_nombre: [''],
     fecha: [todayIso(), [Validators.required, notPastDate()]],
     hora_inicio: [currentTime(), Validators.required],
     hora_fin: [''],
@@ -66,12 +66,12 @@ export class AgendaComponent implements OnInit {
     return this.pacienteInfo() ?? 'Sin paciente seleccionado';
   }
 
-  async edit(cita: Agenda): Promise<void> {
+  async edit(cita: AgendaCalendario): Promise<void> {
     this.selectedId.set(cita.id);
     this.form.patchValue({
       cedula: '',
       paciente_id: cita.paciente_id,
-      usuario_id: cita.usuario_id ?? '',
+      odontologo_nombre: cita.odontologo_nombre ?? '',
       fecha: cita.fecha,
       hora_inicio: cita.hora_inicio,
       hora_fin: cita.hora_fin ?? '',
@@ -94,7 +94,7 @@ export class AgendaComponent implements OnInit {
 
   clear(): void {
     this.selectedId.set(null);
-    this.form.reset({ cedula: '', paciente_id: '', usuario_id: '', fecha: todayIso(), hora_inicio: currentTime(), hora_fin: '', motivo: '', estado: 'pendiente', notas: '' });
+    this.form.reset({ cedula: '', paciente_id: '', odontologo_nombre: '', fecha: todayIso(), hora_inicio: currentTime(), hora_fin: '', motivo: '', estado: 'pendiente', notas: '' });
     this.form.markAsPristine();
     this.form.markAsUntouched();
     this.pacienteInfo.set(null);
@@ -115,14 +115,10 @@ export class AgendaComponent implements OnInit {
       this.pacienteError.set('Busca un paciente por cédula antes de guardar la cita.');
       return;
     }
-    if (!isValidUuid(raw.usuario_id)) {
-      this.form.controls.usuario_id.setErrors({ invalidOption: true });
-      this.form.controls.usuario_id.markAsTouched();
-      return;
-    }
     const payload: AgendaInsert = {
       paciente_id: raw.paciente_id,
-      usuario_id: isValidUuid(raw.usuario_id) ? raw.usuario_id : null,
+      usuario_id: null,
+      odontologo_nombre: emptyToNull(raw.odontologo_nombre),
       fecha: raw.fecha,
       hora_inicio: raw.hora_inicio,
       hora_fin: raw.hora_fin || null,
@@ -211,7 +207,7 @@ export class AgendaComponent implements OnInit {
     }
   }
 
-  async reagendar(cita: Agenda): Promise<void> {
+  async reagendar(cita: AgendaCalendario): Promise<void> {
     await this.edit(cita);
     this.form.controls.estado.setValue('reagendada');
     this.toast.info('Ajusta la fecha u hora y guarda la cita');
@@ -311,7 +307,7 @@ Esperamos que se encuentre bien despues de su tratamiento. Si presenta molestias
     const raw = this.form.getRawValue();
     this.form.patchValue({
       cedula: normalizeWhitespace(raw.cedula),
-      usuario_id: normalizeWhitespace(raw.usuario_id),
+      odontologo_nombre: normalizeWhitespace(raw.odontologo_nombre),
       motivo: normalizeWhitespace(raw.motivo),
       notas: normalizeWhitespace(raw.notas)
     }, { emitEvent: false });

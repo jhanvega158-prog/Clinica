@@ -106,9 +106,13 @@ export interface HistoriaClinica extends Auditable {
   fecha_apertura?: string;
   motivo_consulta: string | null;
   enfermedad_actual: string | null;
+  antecedentes_patologicos: string | null;
   antecedentes_personales: Json | null;
   antecedentes_familiares: Json | null;
-  signos_vitales: Json | null;
+  temperatura_c: number | null;
+  pulso_lpm: number | null;
+  frecuencia_respiratoria_rpm: number | null;
+  presion_arterial: string | null;
   examen_estomatognatico: Json | null;
   diagnosticos: Json | null;
   plan_tratamiento: string | null;
@@ -290,6 +294,7 @@ export interface RecetaMedicamento extends Auditable {
 export interface Agenda extends Auditable {
   paciente_id: EntityId;
   usuario_id: EntityId | null;
+  odontologo_nombre: string | null;
   fecha: string;
   hora_inicio: string;
   hora_fin: string | null;

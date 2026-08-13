@@ -103,7 +103,7 @@ export class AgendaService extends BaseRepository<Agenda, AgendaInsert, AgendaUp
         ...cita,
         paciente_nombre: paciente ? `${paciente.apellidos} ${paciente.nombres}`.trim() : 'Paciente no encontrado',
         paciente_telefono: paciente?.telefono ?? null,
-        odontologo_nombre: odontologo ? `${odontologo.nombres} ${odontologo.apellidos}`.trim() : null,
+        odontologo_nombre: cita.odontologo_nombre || (odontologo ? `${odontologo.nombres} ${odontologo.apellidos}`.trim() : null),
         recordatorio_enviado: enviados.some((item) => item.tipo === 'recordatorio' && item.estado === 'enviado'),
         seguimiento_enviado: enviados.some((item) => item.tipo === 'seguimiento' && item.estado === 'enviado')
       };

@@ -45,8 +45,12 @@ export class HistoriaClinicaComponent implements OnInit {
     usuario_id: [''],
     motivo_consulta: ['', [requiredTrim(), maxTrimLength(500)]],
     enfermedad_actual: ['', [notBlankOptional(), maxTrimLength(1000)]],
+    antecedentes_patologicos: ['', [notBlankOptional(), maxTrimLength(1500)]],
     seguros: ['', [notBlankOptional(), maxTrimLength(300)]],
-    signos_vitales: ['', [notBlankOptional(), maxTrimLength(600)]],
+    temperatura_c: ['', [Validators.min(30), Validators.max(45)]],
+    pulso_lpm: ['', [Validators.min(20), Validators.max(240), Validators.pattern(/^\d*$/)]],
+    frecuencia_respiratoria_rpm: ['', [Validators.min(5), Validators.max(80), Validators.pattern(/^\d*$/)]],
+    presion_arterial: ['', [notBlankOptional(), maxTrimLength(20), Validators.pattern(/^\d{2,3}\s*\/\s*\d{2,3}$/)]],
     examen_estomatognatico: ['', [notBlankOptional(), maxTrimLength(1200)]],
     diagnosticos: ['', [notBlankOptional(), maxTrimLength(1000)]],
     plan_tratamiento: ['', [notBlankOptional(), maxTrimLength(1200)]],
@@ -102,8 +106,12 @@ export class HistoriaClinicaComponent implements OnInit {
       usuario_id: historia.usuario_id ?? '',
       motivo_consulta: historia.motivo_consulta ?? '',
       enfermedad_actual: historia.enfermedad_actual ?? '',
+      antecedentes_patologicos: historia.antecedentes_patologicos ?? '',
       seguros: '',
-      signos_vitales: this.stringifyJson(historia.signos_vitales),
+      temperatura_c: this.numberToFormValue(historia.temperatura_c),
+      pulso_lpm: this.numberToFormValue(historia.pulso_lpm),
+      frecuencia_respiratoria_rpm: this.numberToFormValue(historia.frecuencia_respiratoria_rpm),
+      presion_arterial: historia.presion_arterial ?? '',
       examen_estomatognatico: this.stringifyJson(historia.examen_estomatognatico),
       diagnosticos: this.stringifyJson(historia.diagnosticos),
       plan_tratamiento: historia.plan_tratamiento ?? '',
@@ -117,7 +125,7 @@ export class HistoriaClinicaComponent implements OnInit {
   clear(): void {
     this.selectedId.set(null);
     this.documentos.set([]);
-    this.form.reset({ cedula: '', paciente_id: '', usuario_id: '', motivo_consulta: '', enfermedad_actual: '', seguros: '', signos_vitales: '', examen_estomatognatico: '', diagnosticos: '', plan_tratamiento: '', observaciones: '', estado: 'activo' });
+    this.form.reset({ cedula: '', paciente_id: '', usuario_id: '', motivo_consulta: '', enfermedad_actual: '', antecedentes_patologicos: '', seguros: '', temperatura_c: '', pulso_lpm: '', frecuencia_respiratoria_rpm: '', presion_arterial: '', examen_estomatognatico: '', diagnosticos: '', plan_tratamiento: '', observaciones: '', estado: 'activo' });
     this.form.markAsPristine();
     this.form.markAsUntouched();
     this.pacienteInfo.set(null);
@@ -139,9 +147,13 @@ export class HistoriaClinicaComponent implements OnInit {
       usuario_id: emptyToNull(raw.usuario_id),
       motivo_consulta: normalizeWhitespace(raw.motivo_consulta),
       enfermedad_actual: emptyToNull(raw.enfermedad_actual),
+      antecedentes_patologicos: emptyToNull(raw.antecedentes_patologicos),
       antecedentes_personales: null,
       antecedentes_familiares: null,
-      signos_vitales: this.parseJson(raw.signos_vitales),
+      temperatura_c: this.optionalNumber(raw.temperatura_c),
+      pulso_lpm: this.optionalNumber(raw.pulso_lpm),
+      frecuencia_respiratoria_rpm: this.optionalNumber(raw.frecuencia_respiratoria_rpm),
+      presion_arterial: emptyToNull(raw.presion_arterial),
       examen_estomatognatico: this.parseJson(raw.examen_estomatognatico),
       diagnosticos: this.parseJson(raw.diagnosticos),
       plan_tratamiento: emptyToNull(raw.plan_tratamiento),
@@ -151,12 +163,18 @@ export class HistoriaClinicaComponent implements OnInit {
     try {
       const id = this.selectedId();
       const saved = id ? await this.historiaService.update(id, payload) : await this.historiaService.create(payload);
-      await this.guardarSeguros(raw.paciente_id, raw.seguros);
       this.toast.success('Historia clinica guardada');
       const paciente = this.pacienteSeleccionado();
       this.selectedId.set(saved.id);
       if (paciente) await this.loadHistoriasPaciente(paciente);
       await this.cargarDocumentos(raw.paciente_id, saved.id);
+      try {
+        await this.guardarSeguros(raw.paciente_id, raw.seguros);
+      } catch (error) {
+        this.toast.info(error instanceof Error
+          ? `La historia se guardó, pero no se pudieron actualizar los seguros: ${error.message}`
+          : 'La historia se guardó, pero no se pudieron actualizar los seguros.');
+      }
     } catch (error) { this.toast.error(error instanceof Error ? error.message : 'No se pudo guardar historia'); }
   }
 
@@ -253,7 +271,7 @@ export class HistoriaClinicaComponent implements OnInit {
   private resetFormForPatient(paciente: Paciente): void {
     this.selectedId.set(null);
     this.documentos.set([]);
-    this.form.reset({ cedula: paciente.cedula, paciente_id: paciente.id, usuario_id: '', motivo_consulta: '', enfermedad_actual: '', seguros: '', signos_vitales: '', examen_estomatognatico: '', diagnosticos: '', plan_tratamiento: '', observaciones: '', estado: 'activo' });
+    this.form.reset({ cedula: paciente.cedula, paciente_id: paciente.id, usuario_id: '', motivo_consulta: '', enfermedad_actual: '', antecedentes_patologicos: '', seguros: '', temperatura_c: '', pulso_lpm: '', frecuencia_respiratoria_rpm: '', presion_arterial: '', examen_estomatognatico: '', diagnosticos: '', plan_tratamiento: '', observaciones: '', estado: 'activo' });
     this.form.markAsPristine(); this.form.markAsUntouched();
     this.pacienteInfo.set(`${paciente.apellidos} ${paciente.nombres} • ${paciente.cedula} • ${paciente.telefono || 'Sin teléfono'}`);
     this.pacienteError.set(null);
@@ -298,6 +316,15 @@ export class HistoriaClinicaComponent implements OnInit {
     return value === null ? '' : JSON.stringify(value, null, 2);
   }
 
+  private optionalNumber(value: string | number | null): number | null {
+    const normalized = String(value ?? '').trim();
+    return normalized === '' ? null : Number(normalized);
+  }
+
+  private numberToFormValue(value: number | null): string {
+    return value === null ? '' : String(value);
+  }
+
   private normalizeForm(): void {
     const raw = this.form.getRawValue();
     this.form.patchValue({
@@ -305,8 +332,12 @@ export class HistoriaClinicaComponent implements OnInit {
       usuario_id: normalizeWhitespace(raw.usuario_id),
       motivo_consulta: normalizeWhitespace(raw.motivo_consulta),
       enfermedad_actual: normalizeWhitespace(raw.enfermedad_actual),
+      antecedentes_patologicos: normalizeWhitespace(raw.antecedentes_patologicos),
       seguros: normalizeWhitespace(raw.seguros),
-      signos_vitales: normalizeWhitespace(raw.signos_vitales),
+      temperatura_c: String(raw.temperatura_c ?? '').trim(),
+      pulso_lpm: String(raw.pulso_lpm ?? '').trim(),
+      frecuencia_respiratoria_rpm: String(raw.frecuencia_respiratoria_rpm ?? '').trim(),
+      presion_arterial: normalizeWhitespace(raw.presion_arterial),
       examen_estomatognatico: normalizeWhitespace(raw.examen_estomatognatico),
       diagnosticos: normalizeWhitespace(raw.diagnosticos),
       plan_tratamiento: normalizeWhitespace(raw.plan_tratamiento),

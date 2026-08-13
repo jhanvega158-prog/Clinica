@@ -18,7 +18,7 @@
     </label>
     <label class="field">Paciente<input [value]="pacienteDisplayValue()" readonly placeholder="Se completa automáticamente"></label>
     <input formControlName="paciente_id" hidden>
-    <label class="field">Odontólogo<input formControlName="usuario_id" placeholder="ID del odontólogo" appValidationFeedback></label>
+    <label class="field">Odontólogo<input formControlName="odontologo_nombre" placeholder="Nombre del odontólogo"></label>
     <label class="field">Fecha<input type="date" formControlName="fecha"></label>
     <label class="field">Hora inicio<input type="time" formControlName="hora_inicio"></label>
     <label class="field">Hora fin<input type="time" formControlName="hora_fin"></label>
@@ -70,7 +70,7 @@
           </div>
 
           <dl class="appointment-meta">
-            <div><dt>Odontologo</dt><dd>{{ cita.odontologo_nombre || cita.usuario_id || 'Sin asignar' }}</dd></div>
+            <div><dt>Odontologo</dt><dd>{{ cita.odontologo_nombre || 'Sin asignar' }}</dd></div>
             <div><dt>Motivo</dt><dd>{{ cita.motivo }}</dd></div>
             <div><dt>Observaciones</dt><dd>{{ cita.notas || '-' }}</dd></div>
             <div>

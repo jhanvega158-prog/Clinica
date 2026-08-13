@@ -27,8 +27,17 @@
       <input formControlName="paciente_id" hidden>
       <label class="field span-2">Motivo de consulta<textarea rows="2" formControlName="motivo_consulta"></textarea></label>
       <label class="field span-2">Enfermedad actual<textarea rows="2" formControlName="enfermedad_actual"></textarea></label>
+      <label class="field span-2">Antecedentes patológicos<textarea rows="2" formControlName="antecedentes_patologicos"></textarea></label>
       <label class="field span-2">Seguros<textarea rows="2" formControlName="seguros" placeholder="Separados por coma o salto de línea"></textarea></label>
-      <label class="field">Signos vitales<textarea rows="4" formControlName="signos_vitales"></textarea></label>
+      <fieldset class="vital-signs span-2">
+        <legend>Signos vitales</legend>
+        <div class="vital-signs-grid">
+          <label class="field">Temperatura (°C)<input type="number" min="30" max="45" step="0.1" inputmode="decimal" formControlName="temperatura_c" placeholder="36.5"></label>
+          <label class="field">Pulso (lpm)<input type="number" min="20" max="240" step="1" inputmode="numeric" formControlName="pulso_lpm" placeholder="72"></label>
+          <label class="field">Frecuencia respiratoria (rpm)<input type="number" min="5" max="80" step="1" inputmode="numeric" formControlName="frecuencia_respiratoria_rpm" placeholder="18"></label>
+          <label class="field">Presión arterial (mmHg)<input type="text" inputmode="numeric" formControlName="presion_arterial" placeholder="120/80"></label>
+        </div>
+      </fieldset>
       <label class="field">Examen estomatognático<textarea rows="4" formControlName="examen_estomatognatico"></textarea></label>
       <label class="field span-2">Diagnósticos<textarea rows="4" formControlName="diagnosticos"></textarea></label>
       <label class="field span-2">Plan de tratamiento<textarea rows="3" formControlName="plan_tratamiento"></textarea></label>
