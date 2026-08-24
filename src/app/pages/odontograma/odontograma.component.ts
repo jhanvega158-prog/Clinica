@@ -78,7 +78,7 @@ export class OdontogramaComponent implements OnInit {
   readonly selectedFinding = signal<FindingTool>('caries');
   readonly piezas = [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28,48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38,55,54,53,52,51,61,62,63,64,65,85,84,83,82,81,71,72,73,74,75];
   readonly form = this.fb.nonNullable.group({ cedula: ['', [requiredTrim(), ecuadorianCedula()]], paciente_id: ['', Validators.required], historia_id: [''], tipo: ['inicial' as 'inicial' | 'evolucion', [Validators.required, allowedValues(['inicial', 'evolucion'] as const)]], estado: ['activo' as EstadoRegistro, [Validators.required, allowedValues(['activo', 'completado', 'anulado'] as const)]], observaciones: ['', [notBlankOptional(), maxTrimLength(500)]] });
-  readonly detailForm = this.fb.nonNullable.group({ pieza: [11, [Validators.required, integerMin(11)]], superficie: ['', [notBlankOptional(), maxTrimLength(40)]], movilidad: [0, [Validators.min(0), Validators.max(3)]], recesion: [0, [Validators.min(0), Validators.max(9)]], endodoncia: ['' as '' | 'por_realizar' | 'realizada'], condicion: ['', [notBlankOptional(), maxTrimLength(500)]], notas: ['', [notBlankOptional(), maxTrimLength(300)]] });
+  readonly detailForm = this.fb.nonNullable.group({ pieza: [11, [Validators.required, integerMin(11)]], movilidad: [0, [Validators.min(0), Validators.max(3)]], recesion: [0, [Validators.min(0), Validators.max(9)]], condicion: ['', [notBlankOptional(), maxTrimLength(500)]], notas: ['', [notBlankOptional(), maxTrimLength(300)]] });
   readonly cpoForm = this.fb.nonNullable.group({ cariadas: [0, [integerMin(0)]], perdidas: [0, [integerMin(0)]], obturadas: [0, [integerMin(0)]], ceo: [0, [integerMin(0)]], total: [0, [integerMin(0)]], observaciones: ['', [notBlankOptional(), maxTrimLength(300)]] });
   readonly indicadoresForm = this.fb.nonNullable.group({ higiene_placa: [false], higiene_calculo: [false], higiene_gingivitis: [false], periodontal_leve: [false], periodontal_moderada: [false], periodontal_severa: [false], oclusion_clase_i: [false], oclusion_clase_ii: [false], oclusion_clase_iii: [false], fluorosis_leve: [false], fluorosis_moderada: [false], fluorosis_severa: [false], observaciones: ['', [notBlankOptional(), maxTrimLength(300)]] });
   readonly findings = [
@@ -186,7 +186,7 @@ export class OdontogramaComponent implements OnInit {
     this.form.reset({ cedula: '', paciente_id: '', historia_id: '', tipo: 'inicial', estado: 'activo', observaciones: '' });
     this.cpoForm.reset({ cariadas: 0, perdidas: 0, obturadas: 0, ceo: 0, total: 0, observaciones: '' });
     this.indicadoresForm.reset({ higiene_placa: false, higiene_calculo: false, higiene_gingivitis: false, periodontal_leve: false, periodontal_moderada: false, periodontal_severa: false, oclusion_clase_i: false, oclusion_clase_ii: false, oclusion_clase_iii: false, fluorosis_leve: false, fluorosis_moderada: false, fluorosis_severa: false, observaciones: '' });
-    this.detailForm.reset({ pieza: 11, superficie: '', movilidad: 0, recesion: 0, endodoncia: '', condicion: '', notas: '' });
+    this.detailForm.reset({ pieza: 11, movilidad: 0, recesion: 0, condicion: '', notas: '' });
     this.form.markAsPristine();
     this.form.markAsUntouched();
     this.detailForm.markAsPristine();
@@ -245,9 +245,9 @@ export class OdontogramaComponent implements OnInit {
     const payload: OdontogramaDetalleInsert = {
       odontograma_id: odontogramaId,
       pieza: selectedPieza,
-      superficie: emptyToNull(raw.superficie),
+      superficie: this.currentDetail(selectedPieza)?.superficie ?? null,
       condicion: this.buildStoredCondition(selectedPieza, raw.condicion),
-      endodoncia: raw.endodoncia || null,
+      endodoncia: this.currentDetail(selectedPieza)?.endodoncia ?? null,
       corona: this.currentDetail(selectedPieza)?.corona ?? null,
       sellante: this.currentDetail(selectedPieza)?.sellante ?? null,
       extraccion: this.currentDetail(selectedPieza)?.extraccion ?? null,
@@ -403,7 +403,7 @@ export class OdontogramaComponent implements OnInit {
   selectTooth(pieza: number): void {
     this.selectedTooth.set(pieza);
     const detail = this.currentDetail(pieza);
-    this.detailForm.patchValue({ pieza, superficie: detail?.superficie ?? '', movilidad: detail?.movilidad ?? 0, recesion: detail?.recesion ?? 0, endodoncia: detail?.endodoncia ?? '', condicion: this.clinicalCondition(detail?.condicion), notas: detail?.notas ?? '' });
+    this.detailForm.patchValue({ pieza, movilidad: detail?.movilidad ?? 0, recesion: detail?.recesion ?? 0, condicion: this.clinicalCondition(detail?.condicion), notas: detail?.notas ?? '' });
   }
 
   async downloadPdf(): Promise<void> {
@@ -484,7 +484,7 @@ export class OdontogramaComponent implements OnInit {
       conditionParts.add(finding);
       await this.odontogramaService.guardarDetalle({
         odontograma_id: odontogramaId, pieza, superficie: serializeSurfaceFindings(states),
-        condicion: this.mergeCondition([...conditionParts], raw.condicion), endodoncia: current?.endodoncia ?? (raw.endodoncia || null),
+        condicion: this.mergeCondition([...conditionParts], raw.condicion), endodoncia: current?.endodoncia ?? null,
         corona: current?.corona ?? null, sellante: current?.sellante ?? null, extraccion: current?.extraccion ?? null, movilidad: Number(raw.movilidad) || null,
         recesion: Number(raw.recesion) || null, notas: emptyToNull(raw.notas)
       });
@@ -507,7 +507,7 @@ export class OdontogramaComponent implements OnInit {
       const raw = this.detailForm.getRawValue();
       const payload: OdontogramaDetalleInsert = {
         odontograma_id: odontogramaId, pieza,
-        superficie: current?.superficie ?? emptyToNull(raw.superficie),
+        superficie: current?.superficie ?? null,
         condicion: current?.condicion ?? this.mergeCondition([], raw.condicion),
         endodoncia: current?.endodoncia ?? null,
         corona: current?.corona ?? null,
@@ -705,7 +705,6 @@ export class OdontogramaComponent implements OnInit {
   private normalizeDetailForm(): void {
     const raw = this.detailForm.getRawValue();
     this.detailForm.patchValue({
-      superficie: normalizeWhitespace(raw.superficie),
       condicion: normalizeWhitespace(raw.condicion),
       notas: normalizeWhitespace(raw.notas)
     }, { emitEvent: false });

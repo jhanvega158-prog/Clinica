@@ -46,6 +46,53 @@ export class PacientesService extends BaseRepository<Paciente, PacienteInsert, P
     return data ?? [];
   }
 
+  async listarTodos(): Promise<Paciente[]> {
+    return this.findAll({ orderBy: 'apellidos', ascending: true });
+  }
+
+  override async delete(id: string): Promise<void> {
+    this.loading.set(true);
+    try {
+      const [{ data: paciente, error: pacienteError }, { data: archivos, error: archivosError }] = await Promise.all([
+        supabaseDynamic.from('pacientes').select('foto_url').eq('id', id).maybeSingle(),
+        supabaseDynamic.from('archivos_clinicos').select('bucket,path').eq('paciente_id', id)
+      ]);
+      this.throwIfError(pacienteError);
+      this.throwIfError(archivosError);
+
+      const { error } = await supabaseDynamic.rpc('eliminar_paciente_completo', { paciente_id_param: id });
+      if (error?.code === 'PGRST202') {
+        throw new Error('La eliminación completa aún no está instalada en Supabase. Ejecute la migración eliminar_paciente_completo en el SQL Editor.');
+      }
+      if (error?.code === '42501') {
+        throw new Error('Solo un administrador o un odontólogo activo puede eliminar completamente un paciente.');
+      }
+      if (error?.code === '23503') {
+        throw new Error('No se pudo eliminar al paciente porque todavía existen registros relacionados.');
+      }
+      this.throwIfError(error);
+
+      const filesByBucket = new Map<string, string[]>();
+      for (const archivo of archivos ?? []) {
+        filesByBucket.set(archivo.bucket, [...(filesByBucket.get(archivo.bucket) ?? []), archivo.path]);
+      }
+      const fotoPath = this.storagePathFromPublicUrl(paciente?.foto_url ?? null, environment.storageBuckets.pacientes);
+      if (fotoPath) {
+        filesByBucket.set(environment.storageBuckets.pacientes, [
+          ...(filesByBucket.get(environment.storageBuckets.pacientes) ?? []), fotoPath
+        ]);
+      }
+      const storageResults = await Promise.all([...filesByBucket].map(([bucket, paths]) =>
+        supabase.storage.from(bucket).remove([...new Set(paths)])
+      ));
+      if (storageResults.some(({ error: storageError }) => Boolean(storageError))) {
+        throw new Error('El paciente y sus registros fueron eliminados, pero algunos archivos físicos no pudieron borrarse del almacenamiento.');
+      }
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
   async findByCedula(cedula: string): Promise<Paciente | null> {
     const value = cedula.trim();
     if (!value) {
@@ -261,6 +308,13 @@ export class PacientesService extends BaseRepository<Paciente, PacienteInsert, P
     this.throwStorageError(error);
     if (!data?.signedUrl) throw new Error('No se pudo generar el enlace seguro del archivo.');
     return data.signedUrl;
+  }
+
+  private storagePathFromPublicUrl(url: string | null, bucket: string): string | null {
+    if (!url) return null;
+    const marker = `/object/public/${bucket}/`;
+    const markerIndex = url.indexOf(marker);
+    return markerIndex < 0 ? null : decodeURIComponent(url.slice(markerIndex + marker.length));
   }
 
   private validatePayload<T extends PacienteInsert | PacienteUpdate>(payload: T): T {

@@ -45,7 +45,7 @@ export class FacturacionComponent implements OnInit {
     numero: [{ value: '', disabled: true }, [Validators.required]],
     fecha: [todayIso(), [Validators.required, notFutureDate()]],
     estado: ['pendiente' as EstadoFactura, [Validators.required, allowedValues(['pendiente', 'completado', 'anulado'] as const)]],
-    iva_porcentaje: [15, [Validators.required, Validators.min(0), Validators.max(100)]],
+    iva_porcentaje: [0, [Validators.required, Validators.min(0), Validators.max(100)]],
     observaciones: ['', [notBlankOptional(), maxTrimLength(300)]]
   });
   readonly lineas: FormArray = this.fb.array([]);
@@ -160,6 +160,7 @@ export class FacturacionComponent implements OnInit {
       const raw = this.form.getRawValue();
       const saved = await this.facturacionService.guardarConDetalles(this.selectedId(), {
         paciente_id: raw.paciente_id, numero: raw.numero, fecha: raw.fecha, estado: raw.estado,
+        iva_porcentaje: Number(raw.iva_porcentaje),
         observaciones: emptyToNull(raw.observaciones)
       }, this.lineas.controls.map((line, index) => {
         const item = line.getRawValue();
@@ -185,9 +186,7 @@ export class FacturacionComponent implements OnInit {
       this.selectedId.set(factura.id);
       this.pacienteActual.set(patient);
       this.pacienteInfo.set(patient ? this.patientSummary(patient) : null);
-      const base = Math.max(Number(factura.subtotal) - Number(factura.descuento), 0);
-      const porcentajeIva = base > 0 ? Number(factura.impuesto) / base * 100 : 15;
-      this.form.reset({ cedula: patient?.cedula ?? '', paciente_id: factura.paciente_id, numero: factura.numero, fecha: factura.fecha, estado: factura.estado, iva_porcentaje: porcentajeIva, observaciones: factura.observaciones ?? '' });
+      this.form.reset({ cedula: patient?.cedula ?? '', paciente_id: factura.paciente_id, numero: factura.numero, fecha: factura.fecha, estado: factura.estado, iva_porcentaje: Number(factura.iva_porcentaje ?? 0), observaciones: factura.observaciones ?? '' });
       this.form.controls.numero.disable({ emitEvent: false });
       this.lineas.clear();
       items.forEach((item) => this.agregarServicio(item));
@@ -200,7 +199,7 @@ export class FacturacionComponent implements OnInit {
   async clear(): Promise<void> {
     this.form.enable({ emitEvent: false }); this.lineas.enable({ emitEvent: false });
     this.selectedId.set(null); this.pacienteActual.set(null); this.pacienteInfo.set(null); this.pacienteError.set(null);
-    this.form.reset({ cedula: '', paciente_id: '', numero: '', fecha: todayIso(), estado: 'pendiente', iva_porcentaje: 15, observaciones: '' });
+    this.form.reset({ cedula: '', paciente_id: '', numero: '', fecha: todayIso(), estado: 'pendiente', iva_porcentaje: 0, observaciones: '' });
     this.lineas.clear(); this.agregarServicio();
     await this.prepareNewNumber();
   }

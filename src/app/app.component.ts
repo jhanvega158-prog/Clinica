@@ -53,6 +53,10 @@ export class AppComponent {
     return `${profile.nombres} ${profile.apellidos}`.trim();
   });
 
+  readonly accountEmail = computed(() =>
+    this.auth.user()?.email ?? this.auth.profile()?.email ?? this.profileName()
+  );
+
   readonly initials = computed(() =>
     this.profileName()
       .split(' ')

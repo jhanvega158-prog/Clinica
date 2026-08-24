@@ -8,6 +8,7 @@ export interface FacturaCabeceraPayload {
   paciente_id: string;
   fecha: string;
   estado: EstadoFactura;
+  iva_porcentaje: number;
   observaciones: string | null;
 }
 
@@ -55,6 +56,7 @@ export class FacturacionService extends BaseRepository<Factura, FacturaInsert, F
         estado: payload.estado,
         subtotal: 0,
         impuesto: 0,
+        iva_porcentaje: payload.iva_porcentaje,
         descuento: 0,
         total: 0,
         observaciones: payload.observaciones
@@ -74,6 +76,16 @@ export class FacturacionService extends BaseRepository<Factura, FacturaInsert, F
       this.throwIfError(errorDetalle);
     }
 
+    const subtotal = this.money(detalles.reduce((sum, detalle) => sum + detalle.cantidad * detalle.precio_unitario, 0));
+    const descuento = this.money(detalles.reduce((sum, detalle) => sum + detalle.descuento, 0));
+    const baseImponible = Math.max(subtotal - descuento, 0);
+    const impuesto = this.money(baseImponible * payload.iva_porcentaje / 100);
+    const total = this.money(baseImponible + impuesto);
+    const { error: totalsError } = await supabaseDynamic.from('facturas').update({
+      subtotal, descuento, impuesto, total, iva_porcentaje: payload.iva_porcentaje
+    }).eq('id', id);
+    this.throwIfError(totalsError);
+
     const { data: recalculated, error: reloadError } = await supabaseDynamic.from('facturas').select('*').eq('id', id).single();
     this.throwIfError(reloadError);
     return recalculated as Factura;
@@ -92,5 +104,9 @@ export class FacturacionService extends BaseRepository<Factura, FacturaInsert, F
     const { data, error } = await supabaseDynamic.from('facturas').update({ estado }).eq('id', id).select('*').single();
     this.throwIfError(error);
     return data as Factura;
+  }
+
+  private money(value: number): number {
+    return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
   }
 }

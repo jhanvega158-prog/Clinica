@@ -36,7 +36,7 @@
     <aside class="totals-card">
       <div><span>Subtotal</span><strong>{{ currency(subtotal()) }}</strong></div>
       <div><span>Descuento total</span><strong>- {{ currency(descuentoTotal()) }}</strong></div>
-      <div class="tax-row"><label>IVA <input type="number" formControlName="iva_porcentaje" readonly> %</label><strong>{{ currency(impuesto()) }}</strong></div>
+      <div class="tax-row"><label>IVA <input type="number" min="0" max="100" step="0.01" formControlName="iva_porcentaje"> %</label><strong>{{ currency(impuesto()) }}</strong></div>
       <div class="grand-total"><span>Total a pagar</span><strong>{{ currency(total()) }}</strong></div>
     </aside>
   </div>

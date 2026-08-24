@@ -38,6 +38,7 @@ export class PacientesComponent implements OnInit {
   readonly loading = this.pacientesService.loading;
   readonly searchTerm = signal('');
   readonly hasSearched = signal(false);
+  readonly showingAll = signal(false);
   readonly documentosPorPaciente = signal<Map<string, DocumentoClinico[]>>(new Map());
   readonly fotosPorPaciente = signal<Map<string, string>>(new Map());
 
@@ -64,7 +65,19 @@ export class PacientesComponent implements OnInit {
   }
 
   async load(): Promise<void> {
-    if (this.hasSearched() && this.searchTerm()) await this.search(this.searchTerm());
+    if (this.showingAll()) await this.showAll();
+    else if (this.hasSearched() && this.searchTerm()) await this.search(this.searchTerm());
+  }
+
+  async showAll(): Promise<void> {
+    this.searchTerm.set('');
+    this.hasSearched.set(false);
+    this.showingAll.set(true);
+    try {
+      await this.setPatients(await this.pacientesService.listarTodos());
+    } catch (error) {
+      this.toast.error(error instanceof Error ? error.message : 'No se pudieron cargar los pacientes');
+    }
   }
 
   async search(value: string): Promise<void> {
@@ -72,16 +85,10 @@ export class PacientesComponent implements OnInit {
     this.searchTerm.set(term);
     if (!term) { this.pacientes.set([]); this.hasSearched.set(false); return; }
     this.hasSearched.set(true);
+    this.showingAll.set(false);
     try {
       const pacientes = await this.pacientesService.search(term);
-      this.pacientes.set(pacientes);
-      const documentos = await Promise.all(pacientes.map(async (paciente) => [
-        paciente.id,
-        await this.pacientesService.listarDocumentos(paciente.id)
-      ] as const));
-      this.documentosPorPaciente.set(new Map(documentos));
-      const fotos = await Promise.all(pacientes.map(async (paciente) => [paciente.id, await this.pacientesService.fotoUrl(paciente)] as const));
-      this.fotosPorPaciente.set(new Map(fotos.filter((item): item is readonly [string, string] => Boolean(item[1]))));
+      await this.setPatients(pacientes);
     } catch (error) {
       this.toast.error(error instanceof Error ? error.message : 'Busqueda no disponible');
     }
@@ -92,6 +99,7 @@ export class PacientesComponent implements OnInit {
   clearSearch(): void {
     this.searchTerm.set('');
     this.hasSearched.set(false);
+    this.showingAll.set(false);
     this.pacientes.set([]);
     this.documentosPorPaciente.set(new Map());
     this.fotosPorPaciente.set(new Map());
@@ -193,11 +201,12 @@ export class PacientesComponent implements OnInit {
   }
 
   async remove(paciente: Paciente): Promise<void> {
-    if (!window.confirm(`¿Está seguro de eliminar a ${paciente.nombres} ${paciente.apellidos}?`)) return;
+    if (!window.confirm(`¿Eliminar permanentemente a ${paciente.nombres} ${paciente.apellidos}? También se borrarán su historia clínica, citas, tratamientos, facturas y archivos. Esta acción no se puede deshacer.`)) return;
     try {
       await this.pacientesService.delete(paciente.id);
-      this.toast.success('Paciente eliminado');
-      await this.search(this.searchTerm());
+      this.toast.success('Paciente y toda su información eliminados');
+      if (this.selectedId() === paciente.id) this.clear();
+      await this.load();
     } catch (error) {
       this.toast.error(error instanceof Error ? error.message : 'No se pudo eliminar');
     }
@@ -222,6 +231,17 @@ export class PacientesComponent implements OnInit {
     } catch (error) {
       this.toast.error(error instanceof Error ? error.message : 'No se pudo subir el archivo');
     }
+  }
+
+  private async setPatients(pacientes: Paciente[]): Promise<void> {
+    this.pacientes.set(pacientes);
+    const documentos = await Promise.all(pacientes.map(async (paciente) => [
+      paciente.id,
+      await this.pacientesService.listarDocumentos(paciente.id)
+    ] as const));
+    this.documentosPorPaciente.set(new Map(documentos));
+    const fotos = await Promise.all(pacientes.map(async (paciente) => [paciente.id, await this.pacientesService.fotoUrl(paciente)] as const));
+    this.fotosPorPaciente.set(new Map(fotos.filter((item): item is readonly [string, string] => Boolean(item[1]))));
   }
 
   private normalizeForm(): void {

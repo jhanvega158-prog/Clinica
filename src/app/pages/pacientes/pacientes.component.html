@@ -11,6 +11,7 @@
     <input #patientSearch class="search" type="search" placeholder="Cédula, nombre, apellido o teléfono" [value]="searchTerm()" (keydown.enter)="$event.preventDefault(); runSearch(patientSearch)">
     <button type="button" class="btn primary" (click)="runSearch(patientSearch)">Buscar</button>
     <button type="button" class="btn" (click)="clearSearch(); patientSearch.value = ''">Limpiar búsqueda</button>
+    <button type="button" class="btn all-patients" (click)="patientSearch.value = ''; showAll()" [disabled]="loading()">Ver todos los pacientes</button>
     <button type="button" class="btn new-patient" (click)="clear()">Nuevo paciente</button>
   </div>
 </section>
@@ -66,13 +67,15 @@
             </td>
             <td class="actions">
               <button type="button" class="btn" (click)="edit(paciente)">Ver / Editar</button>
-              <button type="button" class="btn danger" (click)="remove(paciente)">Eliminar</button>
+              <button type="button" class="btn danger" (click)="remove(paciente)" [disabled]="loading()">Eliminar todo</button>
             </td>
           </tr>
         }
       </tbody>
     </table>
   </div>
+} @else if (showingAll()) {
+  <div class="empty">No hay pacientes registrados.</div>
 } @else if (hasSearched()) {
   <div class="empty">No se encontraron pacientes para “{{ searchTerm() }}”.</div>
 } @else {

@@ -365,6 +365,7 @@ export interface Factura extends Auditable {
   fecha: string;
   subtotal: number;
   impuesto: number;
+  iva_porcentaje: number;
   descuento: number;
   total: number;
   estado: EstadoFactura;
