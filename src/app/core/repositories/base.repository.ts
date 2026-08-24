@@ -106,8 +106,22 @@ export abstract class BaseRepository<TRow extends Auditable, TInsert extends obj
   }
 
   protected throwIfError(error: PostgrestError | null): void {
-    if (error) {
-      throw new Error(error.message);
+    if (!error) return;
+    if (error.code === '23505' || /duplicate key/i.test(error.message)) {
+      throw new Error('Ya existe un registro con esos datos.');
     }
+    if (error.code === '23503') {
+      throw new Error('El registro relacionado no existe o ya no está disponible.');
+    }
+    if (error.code === '23514') {
+      throw new Error(error.message || 'Revise los datos ingresados antes de guardar.');
+    }
+    if (error.code === '42501') {
+      throw new Error('No tiene permisos para realizar esta operación. Inicie sesión con un usuario de Supabase.');
+    }
+    if (error.code === 'PGRST204') {
+      throw new Error(`La estructura de Supabase no coincide con la aplicación: ${error.message}`);
+    }
+    throw new Error(error.message || 'No se pudo completar la operación. Inténtelo nuevamente.');
   }
 }

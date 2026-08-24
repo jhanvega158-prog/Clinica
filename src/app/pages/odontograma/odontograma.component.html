@@ -1,18 +1,219 @@
-<div class="page-title"><div><h1>Odontograma</h1><p>Piezas dentales, hallazgos y calculo CPO via RPC.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button></div></div>
+<div class="page-title"><div><h1>Odontograma</h1><p>Representación gráfica de la salud bucodental.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button></div></div>
+
 <form class="panel" [formGroup]="form" (ngSubmit)="save()">
   <h2>{{ selectedId() ? 'Editar odontograma' : 'Nuevo odontograma' }}</h2>
-  <div class="grid"><label class="field">Paciente ID<input formControlName="paciente_id"></label><label class="field">Historia ID<input formControlName="historia_id"></label><label class="field">Tipo<select formControlName="tipo"><option>inicial</option><option>evolucion</option></select></label><label class="field">Estado<select formControlName="estado"><option>activo</option><option>completado</option><option>anulado</option></select></label><label class="field span-2">Observaciones<textarea rows="2" formControlName="observaciones"></textarea></label></div>
-  <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar odontograma</button><button class="btn" type="button" (click)="calculate()">Calcular CPO</button></div>
-</form>
-<section class="panel">
-  <h2>Registrar hallazgo</h2>
-  <form [formGroup]="detailForm" class="grid" (ngSubmit)="saveDetail()">
-    <label class="field">Pieza<input type="number" formControlName="pieza"></label><label class="field">Condicion<input formControlName="condicion"></label><label class="field">Superficie<input formControlName="superficie"></label><label class="field">Movilidad<input type="number" formControlName="movilidad"></label><label class="field">Recesion<input type="number" formControlName="recesion"></label><label class="field">Notas<input formControlName="notas"></label>
-    <div class="actions"><button class="btn primary" type="submit">Guardar hallazgo</button></div>
-  </form>
-  <div class="teeth">
-    @for (pieza of piezas; track pieza) { <button type="button" class="tooth" [class.marked]="hallazgos().has(pieza)" (click)="saveDetail(pieza)"><span>{{ pieza }}</span><small>{{ hallazgos().get(pieza) || '-' }}</small></button> }
+  <div class="grid">
+    <label class="field">Cédula del paciente<input formControlName="cedula" (blur)="buscarPacientePorCedula()" (keydown.enter)="$event.preventDefault(); buscarPacientePorCedula()"></label>
+    <label class="field">Paciente<input [value]="pacienteDisplayValue()" readonly placeholder="Se completa automáticamente"></label>
+    <input formControlName="paciente_id" hidden>
+    <label class="field">Historia<input formControlName="historia_id" placeholder="Se asigna automáticamente" readonly></label>
+    <label class="field">Tipo<select formControlName="tipo"><option>inicial</option><option>evolucion</option></select></label>
+    <label class="field">Estado<select formControlName="estado"><option>activo</option><option>completado</option><option>anulado</option></select></label>
+    <label class="field span-2">Observaciones<textarea rows="2" formControlName="observaciones"></textarea></label>
   </div>
+  @if (pacienteError()) { <p class="error-text">{{ pacienteError() }}</p> }
+  @if (pacienteInfo()) { <p class="helper-text">{{ pacienteInfo() }}</p> }
+  <div class="actions">
+    <button class="btn primary" type="submit" [disabled]="loading()">Guardar odontograma</button>
+    <button class="btn pdf-button" type="button" (click)="downloadPdf()" [disabled]="loading() || generandoPdf()">{{ generandoPdf() ? 'Generando PDF...' : 'Imprimir / Descargar PDF' }}</button>
+  </div>
+</form>
+
+<section class="panel odontogram-panel">
+  <div class="toolbar">
+    <div>
+      <h2>Herramientas de hallazgo</h2>
+      <p>Seleccione un hallazgo y luego pulse una pieza para aplicarlo.</p>
+    </div>
+    <div class="finding-tools">
+      @for (finding of findings; track finding.key) {
+        <button type="button" class="finding-chip" [class.active]="selectedFinding() === finding.key" (click)="selectedFinding.set(finding.key)">
+          <span class="finding-symbol" [class]="'finding-symbol ' + finding.symbol" [style.--symbol-color]="finding.color"></span>
+          {{ finding.label }}
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="chart-layout">
+    <div class="chart-card" aria-label="Odontograma dental FDI">
+      <div class="dental-chart">
+        @for (row of chartRows(); track row.key) {
+          <div class="dentition-row" [class.temporary-row]="row.temporary">
+            <p class="row-label">{{ row.label }}</p>
+            <div class="arch-half left-half">
+              @for (tooth of row.left; track tooth.numero) {
+                <ng-container [ngTemplateOutlet]="toothTemplate"></ng-container>
+                <ng-template #toothTemplate>
+                  <button type="button" class="tooth" [class.selected]="tooth.selected" [class.examined]="tooth.examined" [class.temporal]="row.temporary" (click)="selectTooth(tooth.numero)" [attr.aria-label]="'Pieza ' + tooth.numero">
+                    <strong>{{ tooth.numero }}</strong>
+                    @if (!row.temporary) {
+                      <svg class="tooth-svg" viewBox="0 0 60 60" role="img">
+                        <path class="surface" d="M3 3H57L44 16H16Z" [attr.fill]="surfaceColor(tooth,'arriba')" (click)="applyFinding(tooth.numero,'arriba',$event)"/>
+                        <path class="surface" d="M57 3V57L44 44V16Z" [attr.fill]="surfaceColor(tooth,'derecha')" (click)="applyFinding(tooth.numero,'derecha',$event)"/>
+                        <path class="surface" d="M57 57H3L16 44H44Z" [attr.fill]="surfaceColor(tooth,'abajo')" (click)="applyFinding(tooth.numero,'abajo',$event)"/>
+                        <path class="surface" d="M3 57V3L16 16V44Z" [attr.fill]="surfaceColor(tooth,'izquierda')" (click)="applyFinding(tooth.numero,'izquierda',$event)"/>
+                        <rect class="surface" x="16" y="16" width="28" height="28" [attr.fill]="surfaceColor(tooth,'centro')" (click)="applyFinding(tooth.numero,'centro',$event)"/>
+                        @if (tooth.detail?.endodoncia) { <polygon class="clinical-symbol" points="30,10 48,45 12,45" fill="none" [attr.stroke]="treatmentColor(tooth.detail?.endodoncia)"/> }
+                        @if (tooth.detail?.corona) { <rect class="clinical-symbol" x="7" y="7" width="46" height="46" rx="4" fill="none" [attr.stroke]="treatmentColor(tooth.detail?.corona)"/> }
+                        @if (tooth.detail?.sellante) { <text class="clinical-symbol sealant-symbol" x="30" y="30" text-anchor="middle" dominant-baseline="central" [attr.fill]="treatmentColor(tooth.detail?.sellante)">*</text> }
+                        @if (tooth.detail?.extraccion) { <path class="clinical-symbol extraction-symbol" d="M11 11L49 49M49 11L11 49" fill="none" [attr.stroke]="treatmentColor(tooth.detail?.extraccion)"/> }
+                      </svg>
+                    } @else {
+                      <svg class="tooth-svg" viewBox="0 0 60 60" role="img">
+                        <path class="surface" d="M10.9 10.9A27 27 0 0 1 49.1 10.9L38.5 21.5A12 12 0 0 0 21.5 21.5Z" [attr.fill]="surfaceColor(tooth,'arriba')" (click)="applyFinding(tooth.numero,'arriba',$event)"/>
+                        <path class="surface" d="M49.1 10.9A27 27 0 0 1 49.1 49.1L38.5 38.5A12 12 0 0 0 38.5 21.5Z" [attr.fill]="surfaceColor(tooth,'derecha')" (click)="applyFinding(tooth.numero,'derecha',$event)"/>
+                        <path class="surface" d="M49.1 49.1A27 27 0 0 1 10.9 49.1L21.5 38.5A12 12 0 0 0 38.5 38.5Z" [attr.fill]="surfaceColor(tooth,'abajo')" (click)="applyFinding(tooth.numero,'abajo',$event)"/>
+                        <path class="surface" d="M10.9 49.1A27 27 0 0 1 10.9 10.9L21.5 21.5A12 12 0 0 0 21.5 38.5Z" [attr.fill]="surfaceColor(tooth,'izquierda')" (click)="applyFinding(tooth.numero,'izquierda',$event)"/>
+                        <circle class="surface" cx="30" cy="30" r="12" [attr.fill]="surfaceColor(tooth,'centro')" (click)="applyFinding(tooth.numero,'centro',$event)"/>
+                        @if (tooth.detail?.endodoncia) { <polygon class="clinical-symbol" points="30,10 48,45 12,45" fill="none" [attr.stroke]="treatmentColor(tooth.detail?.endodoncia)"/> }
+                        @if (tooth.detail?.corona) { <rect class="clinical-symbol" x="7" y="7" width="46" height="46" rx="4" fill="none" [attr.stroke]="treatmentColor(tooth.detail?.corona)"/> }
+                        @if (tooth.detail?.sellante) { <text class="clinical-symbol sealant-symbol" x="30" y="30" text-anchor="middle" dominant-baseline="central" [attr.fill]="treatmentColor(tooth.detail?.sellante)">*</text> }
+                        @if (tooth.detail?.extraccion) { <path class="clinical-symbol extraction-symbol" d="M11 11L49 49M49 11L11 49" fill="none" [attr.stroke]="treatmentColor(tooth.detail?.extraccion)"/> }
+                      </svg>
+                    }
+                  </button>
+                </ng-template>
+              }
+            </div>
+            <div class="arch-divider" aria-hidden="true"></div>
+            <div class="arch-half right-half">
+              @for (tooth of row.right; track tooth.numero) {
+                <button type="button" class="tooth" [class.selected]="tooth.selected" [class.examined]="tooth.examined" [class.temporal]="row.temporary" (click)="selectTooth(tooth.numero)" [attr.aria-label]="'Pieza ' + tooth.numero">
+                  <strong>{{ tooth.numero }}</strong>
+                  <svg class="tooth-svg" viewBox="0 0 60 60" role="img">
+                    @if (!row.temporary) {
+                      <path class="surface" d="M3 3H57L44 16H16Z" [attr.fill]="surfaceColor(tooth,'arriba')" (click)="applyFinding(tooth.numero,'arriba',$event)"/><path class="surface" d="M57 3V57L44 44V16Z" [attr.fill]="surfaceColor(tooth,'derecha')" (click)="applyFinding(tooth.numero,'derecha',$event)"/><path class="surface" d="M57 57H3L16 44H44Z" [attr.fill]="surfaceColor(tooth,'abajo')" (click)="applyFinding(tooth.numero,'abajo',$event)"/><path class="surface" d="M3 57V3L16 16V44Z" [attr.fill]="surfaceColor(tooth,'izquierda')" (click)="applyFinding(tooth.numero,'izquierda',$event)"/><rect class="surface" x="16" y="16" width="28" height="28" [attr.fill]="surfaceColor(tooth,'centro')" (click)="applyFinding(tooth.numero,'centro',$event)"/>@if (tooth.detail?.endodoncia) { <polygon class="clinical-symbol" points="30,10 48,45 12,45" fill="none" [attr.stroke]="treatmentColor(tooth.detail?.endodoncia)"/> }@if (tooth.detail?.corona) { <rect class="clinical-symbol" x="7" y="7" width="46" height="46" rx="4" fill="none" [attr.stroke]="treatmentColor(tooth.detail?.corona)"/> }@if (tooth.detail?.sellante) { <text class="clinical-symbol sealant-symbol" x="30" y="30" text-anchor="middle" dominant-baseline="central" [attr.fill]="treatmentColor(tooth.detail?.sellante)">*</text> }@if (tooth.detail?.extraccion) { <path class="clinical-symbol extraction-symbol" d="M11 11L49 49M49 11L11 49" fill="none" [attr.stroke]="treatmentColor(tooth.detail?.extraccion)"/> }
+                    } @else {
+                      <path class="surface" d="M10.9 10.9A27 27 0 0 1 49.1 10.9L38.5 21.5A12 12 0 0 0 21.5 21.5Z" [attr.fill]="surfaceColor(tooth,'arriba')" (click)="applyFinding(tooth.numero,'arriba',$event)"/><path class="surface" d="M49.1 10.9A27 27 0 0 1 49.1 49.1L38.5 38.5A12 12 0 0 0 38.5 21.5Z" [attr.fill]="surfaceColor(tooth,'derecha')" (click)="applyFinding(tooth.numero,'derecha',$event)"/><path class="surface" d="M49.1 49.1A27 27 0 0 1 10.9 49.1L21.5 38.5A12 12 0 0 0 38.5 38.5Z" [attr.fill]="surfaceColor(tooth,'abajo')" (click)="applyFinding(tooth.numero,'abajo',$event)"/><path class="surface" d="M10.9 49.1A27 27 0 0 1 10.9 10.9L21.5 21.5A12 12 0 0 0 21.5 38.5Z" [attr.fill]="surfaceColor(tooth,'izquierda')" (click)="applyFinding(tooth.numero,'izquierda',$event)"/><circle class="surface" cx="30" cy="30" r="12" [attr.fill]="surfaceColor(tooth,'centro')" (click)="applyFinding(tooth.numero,'centro',$event)"/>@if (tooth.detail?.endodoncia) { <polygon class="clinical-symbol" points="30,10 48,45 12,45" fill="none" [attr.stroke]="treatmentColor(tooth.detail?.endodoncia)"/> }@if (tooth.detail?.corona) { <rect class="clinical-symbol" x="7" y="7" width="46" height="46" rx="4" fill="none" [attr.stroke]="treatmentColor(tooth.detail?.corona)"/> }@if (tooth.detail?.sellante) { <text class="clinical-symbol sealant-symbol" x="30" y="30" text-anchor="middle" dominant-baseline="central" [attr.fill]="treatmentColor(tooth.detail?.sellante)">*</text> }@if (tooth.detail?.extraccion) { <path class="clinical-symbol extraction-symbol" d="M11 11L49 49M49 11L11 49" fill="none" [attr.stroke]="treatmentColor(tooth.detail?.extraccion)"/> }
+                    }
+                  </svg>
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <aside class="detail-card">
+      <h3>Detalle de pieza</h3>
+      @if (selectedTooth(); as pieza) {
+        <p class="detail-title">Pieza {{ pieza }}</p>
+        <form [formGroup]="detailForm" class="detail-form">
+          <label class="field">Movilidad<input type="number" min="0" max="3" formControlName="movilidad"></label>
+          <label class="field">Recesión<input type="number" min="0" max="9" formControlName="recesion"></label>
+          <label class="field">Condición<textarea rows="2" formControlName="condicion" placeholder="Describa la condición clínica"></textarea></label>
+          <label class="field">Notas<input formControlName="notas"></label>
+          <div class="actions"><button class="btn primary" type="button" (click)="saveDetail(pieza)" [disabled]="loading()">Guardar pieza</button></div>
+        </form>
+      } @else {
+        <p class="empty">Seleccione una pieza para ver su información clínica.</p>
+      }
+    </aside>
+  </div>
+</section>
+
+<div id="odontograma-pdf" class="pdf-sheet" aria-hidden="true">
+  <header class="pdf-header">
+    <img src="assets/images/logo.jpeg" alt="Logo VitaDenti">
+    <div class="pdf-branding">
+      <strong>VitaDenti – Centro Integral Odontológico</strong>
+      <span>Cuidamos tu sonrisa, cuidamos tu salud</span>
+    </div>
+    <div class="pdf-title">
+      <h1>Odontograma clínico</h1>
+      <span>Generado: {{ pdfGeneratedAt() }}</span>
+    </div>
+  </header>
+
+  @if (pacientePdf(); as data) {
+    <section class="pdf-data-grid">
+      <div><span>Paciente</span><strong>{{ data.paciente.nombres }} {{ data.paciente.apellidos }}</strong></div>
+      <div><span>Cédula</span><strong>{{ data.paciente.cedula }}</strong></div>
+      <div><span>Edad</span><strong>{{ data.edad !== null ? data.edad + ' años' : 'No registrada' }}</strong></div>
+      <div><span>Teléfono</span><strong>{{ data.paciente.telefono || 'No registrado' }}</strong></div>
+      <div><span>Correo</span><strong>{{ data.paciente.email || 'No registrado' }}</strong></div>
+      <div><span>Profesional responsable</span><strong>{{ professionalName() }}</strong></div>
+    </section>
+  }
+
+  <section id="odontograma-pdf-chart" class="pdf-chart"></section>
+
+  <section class="pdf-bottom">
+    <div class="pdf-legend">
+      <strong>Simbología</strong>
+      @for (finding of findings; track finding.key) {
+        <span><i [style.background]="finding.color"></i>{{ finding.label }}</span>
+      }
+    </div>
+    <div class="pdf-observations"><strong>Observaciones:</strong> {{ form.controls.observaciones.value || 'Sin observaciones.' }}</div>
+  </section>
+
+  <footer class="pdf-signatures">
+    <div><span></span><strong>Firma del odontólogo</strong><small>{{ professionalName() }}</small></div>
+    <div><span></span><strong>Firma del paciente</strong><small>{{ pacientePdf()?.paciente?.nombres }} {{ pacientePdf()?.paciente?.apellidos }}</small></div>
+  </footer>
+</div>
+
+<section class="panel">
+  <div class="legend">
+    <h2>Simbología del Odontograma</h2>
+    <div class="legend-list">
+      @for (finding of findings; track finding.key) {
+        <div class="legend-item"><span class="dot" [style.background]="finding.color"></span><strong>{{ finding.label }}</strong><span>{{ finding.description }}</span></div>
+      }
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Piezas examinadas</h2>
+  <p class="helper-text">Marque las piezas examinadas. Los cambios se guardan automáticamente.</p>
+  <div class="msp-table">
+    @for (row of piezasExaminadasTabla; track row[0]) {
+      <div class="msp-row">
+        @for (pieza of row; track pieza) {
+          <label class="msp-cell">
+            <input type="checkbox" [checked]="isPiezaExaminada(pieza)" (change)="togglePiezaExaminada(pieza)">
+            <span>{{ pieza }}</span>
+          </label>
+        }
+      </div>
+    }
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Índices CPO-ceo</h2>
+  <form [formGroup]="cpoForm" class="grid" (ngSubmit)="saveCpoManual()">
+    <label class="field">Cariadas<input type="number" formControlName="cariadas"></label>
+    <label class="field">Perdidas<input type="number" formControlName="perdidas"></label>
+    <label class="field">Obturadas<input type="number" formControlName="obturadas"></label>
+    <label class="field">CEO<input type="number" formControlName="ceo"></label>
+    <label class="field">Total<input type="number" formControlName="total"></label>
+    <label class="field">Observaciones<input formControlName="observaciones"></label>
+    <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar CPO</button></div>
+  </form>
+</section>
+<section class="panel">
+  <h2>Indicadores de salud bucal</h2>
+  <form [formGroup]="indicadoresForm" class="grid" (ngSubmit)="saveIndicadores()">
+    <label class="field"><input type="checkbox" formControlName="higiene_placa"> Higiene placa</label>
+    <label class="field"><input type="checkbox" formControlName="higiene_calculo"> Cálculo</label>
+    <label class="field"><input type="checkbox" formControlName="higiene_gingivitis"> Gingivitis</label>
+    <label class="field"><input type="checkbox" formControlName="periodontal_leve"> Periodontal leve</label>
+    <label class="field"><input type="checkbox" formControlName="periodontal_moderada"> Periodontal moderada</label>
+    <label class="field"><input type="checkbox" formControlName="periodontal_severa"> Periodontal severa</label>
+    <label class="field"><input type="checkbox" formControlName="oclusion_clase_i"> Oclusión clase I</label>
+    <label class="field"><input type="checkbox" formControlName="oclusion_clase_ii"> Oclusión clase II</label>
+    <label class="field"><input type="checkbox" formControlName="oclusion_clase_iii"> Oclusión clase III</label>
+    <label class="field"><input type="checkbox" formControlName="fluorosis_leve"> Fluorosis leve</label>
+    <label class="field"><input type="checkbox" formControlName="fluorosis_moderada"> Fluorosis moderada</label>
+    <label class="field"><input type="checkbox" formControlName="fluorosis_severa"> Fluorosis severa</label>
+    <label class="field span-2">Observaciones<textarea rows="2" formControlName="observaciones"></textarea></label>
+    <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar indicadores</button></div>
+  </form>
 </section>
 <section class="cards">
   <article class="metric"><small>Cariadas</small><strong>{{ cpo()?.cariadas ?? 0 }}</strong></article><article class="metric"><small>Perdidas</small><strong>{{ cpo()?.perdidas ?? 0 }}</strong></article><article class="metric"><small>Obturadas</small><strong>{{ cpo()?.obturadas ?? 0 }}</strong></article><article class="metric"><small>CPO total</small><strong>{{ cpo()?.total ?? 0 }}</strong></article>

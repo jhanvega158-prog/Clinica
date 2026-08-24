@@ -1,17 +1,72 @@
-<div class="page-title"><div><h1>Facturacion</h1><p>Facturas listas para imprimir o exportar a PDF desde el navegador.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button><button class="btn primary" type="button" (click)="print()">Imprimir PDF</button></div></div>
-<form class="panel" [formGroup]="form" (ngSubmit)="save()">
-  <h2>{{ selectedId() ? 'Editar factura' : 'Nueva factura' }}</h2>
-  <div class="grid">
-    <label class="field">Paciente ID<input formControlName="paciente_id"></label><label class="field">Numero<input formControlName="numero"></label>
-    <label class="field">Fecha<input type="date" formControlName="fecha"></label><label class="field">Estado<select formControlName="estado"><option>pendiente</option><option>completado</option><option>anulado</option></select></label>
-    <label class="field">Subtotal<input type="number" formControlName="subtotal"></label><label class="field">Impuesto<input type="number" formControlName="impuesto"></label>
-    <label class="field">Descuento<input type="number" formControlName="descuento"></label><label class="field">Total<input [value]="total()" readonly></label>
-    <label class="field span-2">Observaciones<textarea rows="2" formControlName="observaciones"></textarea></label>
+<div class="page-title">
+  <div><h1>Facturación</h1><p>Emisión de comprobantes y control de pagos clínicos.</p></div>
+</div>
+
+<form class="panel invoice-form" [formGroup]="form" (ngSubmit)="save()">
+  <div class="section-heading"><div><h2>{{ selectedId() ? 'Detalle de factura' : 'Nueva factura' }}</h2><p>Información principal del comprobante.</p></div><span class="invoice-number">{{ form.getRawValue().numero || 'Generando...' }}</span></div>
+  <div class="invoice-main-grid">
+    <label class="field">Cédula del paciente<input formControlName="cedula" (blur)="buscarPacientePorCedula()" (keydown.enter)="$event.preventDefault(); buscarPacientePorCedula()" placeholder="0000000000"></label>
+    <label class="field">N.º de factura<input formControlName="numero" readonly></label>
+    <label class="field">Fecha de emisión<input type="date" formControlName="fecha"></label>
+    <label class="field">Estado<select formControlName="estado"><option value="pendiente">Pendiente</option><option value="completado">Pagada</option><option value="anulado">Anulada</option></select></label>
   </div>
-  <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar</button><button class="btn" type="button" (click)="clear()">Limpiar</button></div>
+  @if (pacienteError()) { <p class="error-text">{{ pacienteError() }}</p> }
+  @if (pacienteActual(); as patient) {
+    <div class="patient-card"><div><span>Paciente</span><strong>{{ patient.nombres }} {{ patient.apellidos }}</strong></div><div><span>Correo</span><strong>{{ patient.email || 'No registrado' }}</strong></div><div><span>Teléfono</span><strong>{{ patient.telefono || 'No registrado' }}</strong></div></div>
+  } @else { <div class="patient-placeholder">Busque al paciente por su cédula para cargar sus datos.</div> }
+
+  <div class="detail-heading"><div><h3>Detalle de factura</h3><p>Agregue tratamientos registrados u otros servicios.</p></div><button class="btn add-service" type="button" (click)="agregarServicio()">+ Agregar servicio</button></div>
+  <div class="invoice-table-wrap">
+    <table class="detail-table"><thead><tr><th>Servicio / Tratamiento</th><th>Cantidad</th><th>Precio unitario</th><th>Descuento</th><th>Total</th><th>Acción</th></tr></thead><tbody>
+      @for (line of lineas.controls; track line; let i = $index) {
+        <tr [formGroup]="asLine(line)">
+          <td class="service-cell"><select formControlName="tratamiento_id" (change)="seleccionarTratamiento(i)"><option value="otro">Otro servicio</option>@for (tratamiento of tratamientosDisponibles(); track tratamiento.id) { <option [value]="tratamiento.id">{{ tratamiento.procedimiento }}</option> }</select><input formControlName="descripcion" [readonly]="line.get('tratamiento_id')?.value !== 'otro'" placeholder="Descripción del servicio"></td>
+          <td><input type="number" min="0.01" step="1" formControlName="cantidad"></td>
+          <td><div class="money-input"><span>$</span><input type="number" min="0" step="0.01" formControlName="precio_unitario"></div></td>
+          <td><div class="money-input"><span>$</span><input type="number" min="0" step="0.01" formControlName="descuento"></div></td>
+          <td class="line-total">{{ currency(lineaTotal(i)) }}</td>
+          <td><button class="icon-danger" type="button" (click)="eliminarServicio(i)" title="Eliminar servicio">×</button></td>
+        </tr>
+      }
+    </tbody></table>
+  </div>
+
+  <div class="invoice-footer-grid">
+    <label class="field observations">Observaciones<textarea rows="5" formControlName="observaciones" placeholder="Información adicional del comprobante"></textarea></label>
+    <aside class="totals-card">
+      <div><span>Subtotal</span><strong>{{ currency(subtotal()) }}</strong></div>
+      <div><span>Descuento total</span><strong>- {{ currency(descuentoTotal()) }}</strong></div>
+      <div class="tax-row"><label>IVA <input type="number" min="0" max="100" step="0.01" formControlName="iva_porcentaje"> %</label><strong>{{ currency(impuesto()) }}</strong></div>
+      <div class="grand-total"><span>Total a pagar</span><strong>{{ currency(total()) }}</strong></div>
+    </aside>
+  </div>
+
+  <div class="form-actions"><button class="btn primary" type="submit" [disabled]="loading() || form.controls.estado.value === 'anulado'">Guardar factura</button><button class="btn" type="button" (click)="clear()">Limpiar</button><button class="btn pdf-action" type="button" (click)="descargarFactura()" [disabled]="!selectedId() || generandoPdf()">{{ generandoPdf() ? 'Generando...' : 'Imprimir / Descargar PDF' }}</button></div>
 </form>
-@if (facturas().length) {
-  <div class="table-wrap"><table><thead><tr><th>Numero</th><th>Fecha</th><th>Paciente</th><th>Total</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
-    @for (factura of facturas(); track factura.id) { <tr><td>{{ factura.numero }}</td><td>{{ factura.fecha }}</td><td>{{ factura.paciente_id }}</td><td>{{ factura.total }}</td><td><span class="badge">{{ factura.estado }}</span></td><td class="actions"><button class="btn" type="button" (click)="edit(factura)">Editar</button><button class="btn danger" type="button" (click)="remove(factura)">Eliminar</button></td></tr> }
-  </tbody></table></div>
-} @else { <div class="empty">No hay facturas registradas.</div> }
+
+<section class="panel history-panel">
+  <div class="section-heading"><div><h2>Historial de facturas</h2><p>Consulte, descargue y gestione los comprobantes emitidos.</p></div></div>
+  <div class="history-filters" [formGroup]="filtros" (input)="updateFilters()" (change)="updateFilters()">
+    <label class="field search-field">Buscar<input formControlName="texto" placeholder="N.º factura, paciente o cédula"></label>
+    <label class="field">Estado<select formControlName="estado"><option value="">Todos</option><option value="pendiente">Pendiente</option><option value="completado">Pagada</option><option value="anulado">Anulada</option></select></label>
+    <label class="field">Desde<input type="date" formControlName="desde"></label>
+    <label class="field">Hasta<input type="date" formControlName="hasta"></label>
+  </div>
+  @if (facturasFiltradas().length) {
+    <div class="table-wrap"><table><thead><tr><th>N.º Factura</th><th>Fecha</th><th>Paciente</th><th>Total</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+      @for (factura of facturasFiltradas(); track factura.id) {
+        <tr><td><strong>{{ factura.numero }}</strong></td><td>{{ factura.fecha }}</td><td>{{ pacienteNombre(factura.paciente_id) }}</td><td class="history-total">{{ currency(factura.total) }}</td><td><span class="status-badge" [class.paid]="factura.estado === 'completado'" [class.cancelled]="factura.estado === 'anulado'">{{ estadoLabel(factura.estado) }}</span></td><td><div class="row-actions"><button class="table-action" type="button" (click)="edit(factura)">Ver detalle</button><button class="table-action" type="button" (click)="descargarFactura(factura)">Descargar PDF</button>@if (factura.estado === 'pendiente') { <button class="table-action success" type="button" (click)="cambiarEstado(factura, 'completado')">Marcar pagada</button> }@if (factura.estado !== 'anulado') { <button class="table-action danger-link" type="button" (click)="cambiarEstado(factura, 'anulado')">Anular</button> }</div></td></tr>
+      }
+    </tbody></table></div>
+  } @else { <div class="empty">No se encontraron facturas con los filtros seleccionados.</div> }
+</section>
+
+<div id="factura-pdf" class="invoice-pdf" aria-hidden="true">
+  <header class="pdf-header"><img src="assets/images/logo.jpeg" alt="Logo VitaDenti"><div><strong>VitaDenti – Centro Integral Odontológico</strong><span>Cuidamos tu sonrisa, cuidamos tu salud</span></div></header>
+  <div class="pdf-document-title"><div><h1>FACTURA / COMPROBANTE DE PAGO</h1><span>Fecha y hora de generación: {{ pdfGeneratedAt() }}</span></div><div><strong>{{ form.getRawValue().numero }}</strong><span>Estado: {{ estadoLabel(form.getRawValue().estado) }}</span></div></div>
+  <section class="pdf-clinic"><strong>Datos de la clínica</strong><span>VitaDenti – Centro Integral Odontológico</span><span>Atención odontológica integral</span></section>
+  @if (pacienteActual(); as patient) { <section class="pdf-patient"><strong>Datos del paciente</strong><div><span>Nombre</span><b>{{ patient.nombres }} {{ patient.apellidos }}</b></div><div><span>Cédula</span><b>{{ patient.cedula }}</b></div><div><span>Correo</span><b>{{ patient.email || 'No registrado' }}</b></div><div><span>Teléfono</span><b>{{ patient.telefono || 'No registrado' }}</b></div></section> }
+  <table class="pdf-items"><thead><tr><th>Descripción</th><th>Cant.</th><th>P. unitario</th><th>Descuento</th><th>Total</th></tr></thead><tbody>@for (line of lineas.controls; track line; let i = $index) { <tr><td>{{ line.get('descripcion')?.value }}</td><td>{{ line.get('cantidad')?.value }}</td><td>{{ currency(line.get('precio_unitario')?.value) }}</td><td>{{ currency(line.get('descuento')?.value) }}</td><td>{{ currency(lineaTotal(i)) }}</td></tr> }</tbody></table>
+  <div class="pdf-summary-area"><div class="pdf-notes"><strong>Observaciones</strong><p>{{ form.controls.observaciones.value || 'Sin observaciones.' }}</p></div><div class="pdf-totals"><div><span>Subtotal</span><b>{{ currency(subtotal()) }}</b></div><div><span>Descuento</span><b>- {{ currency(descuentoTotal()) }}</b></div><div><span>IVA ({{ form.controls.iva_porcentaje.value }}%)</span><b>{{ currency(impuesto()) }}</b></div><div><span>Total</span><b>{{ currency(total()) }}</b></div></div></div>
+  <footer class="pdf-signatures"><div><span></span><strong>Firma del responsable</strong><small>{{ professionalName() }}</small></div><div><span></span><strong>Firma / recibido del paciente</strong><small>{{ pacienteActual()?.nombres }} {{ pacienteActual()?.apellidos }}</small></div></footer>
+</div>

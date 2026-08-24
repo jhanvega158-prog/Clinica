@@ -1,71 +1,38 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Inventario, InventarioInsert } from '../../core/models/interfaces/database.types';
+import { Inventario, InventarioInsert, InventarioMovimiento } from '../../core/models/interfaces/database.types';
 import { InventarioService } from '../../core/services/inventario.service';
 import { ToastService } from '../../core/services/toast.service';
+import { ValidationFeedbackDirective } from '../../shared/directives/validation-feedback.directive';
+import { integerMin, maxTrimLength, maxTwoDecimals, nonNegativeNumber, normalizeWhitespace, requiredTrim } from '../../shared/utils/validation.utils';
 
-@Component({
-  selector: 'app-inventario',
-  standalone: true,
-  imports: [ReactiveFormsModule],
-  templateUrl: './inventario.component.html'
-})
+type MovimientoVista = InventarioMovimiento & { usuario_nombre: string };
+@Component({ selector: 'app-inventario', standalone: true, imports: [ReactiveFormsModule, ValidationFeedbackDirective, DatePipe], templateUrl: './inventario.component.html', styleUrl: './inventario.component.css' })
 export class InventarioComponent implements OnInit {
-  private readonly fb = inject(FormBuilder);
-  private readonly inventarioService = inject(InventarioService);
-  private readonly toast = inject(ToastService);
-  readonly items = signal<Inventario[]>([]);
-  readonly selectedId = signal<string | null>(null);
-  readonly loading = this.inventarioService.loading;
-  readonly form = this.fb.nonNullable.group({
-    codigo: ['', Validators.required],
-    nombre: ['', Validators.required],
-    categoria: [''],
-    stock: [0, Validators.required],
-    stock_minimo: [0, Validators.required],
-    unidad: [''],
-    costo: [0],
-    vencimiento: [''],
-    activo: [true]
-  });
-
-  ngOnInit(): void { void this.load(); }
-
-  async load(): Promise<void> {
-    try { this.items.set(await this.inventarioService.findAll({ orderBy: 'nombre', ascending: true })); }
-    catch (error) { this.toast.error(error instanceof Error ? error.message : 'No se cargo inventario'); }
-  }
-
-  async loadLowStock(): Promise<void> {
-    try { this.items.set(await this.inventarioService.bajoStock()); }
-    catch (error) { this.toast.error(error instanceof Error ? error.message : 'No se cargo stock bajo'); }
-  }
-
-  edit(item: Inventario): void {
-    this.selectedId.set(item.id);
-    this.form.patchValue({ ...item, categoria: item.categoria ?? '', unidad: item.unidad ?? '', costo: item.costo ?? 0, vencimiento: item.vencimiento ?? '' });
-  }
-
-  clear(): void {
-    this.selectedId.set(null);
-    this.form.reset({ codigo: '', nombre: '', categoria: '', stock: 0, stock_minimo: 0, unidad: '', costo: 0, vencimiento: '', activo: true });
-  }
-
-  async save(): Promise<void> {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
-    const raw = this.form.getRawValue();
-    const payload: InventarioInsert = { codigo: raw.codigo, nombre: raw.nombre, categoria: raw.categoria || null, stock: Number(raw.stock) || 0, stock_minimo: Number(raw.stock_minimo) || 0, unidad: raw.unidad || null, costo: Number(raw.costo) || null, vencimiento: raw.vencimiento || null, activo: raw.activo };
-    try {
-      const id = this.selectedId();
-      id ? await this.inventarioService.update(id, payload) : await this.inventarioService.create(payload);
-      this.toast.success('Inventario guardado');
-      this.clear();
-      await this.load();
-    } catch (error) { this.toast.error(error instanceof Error ? error.message : 'No se pudo guardar inventario'); }
-  }
-
-  async remove(item: Inventario): Promise<void> {
-    try { await this.inventarioService.delete(item.id); this.toast.success('Item eliminado'); await this.load(); }
-    catch (error) { this.toast.error(error instanceof Error ? error.message : 'No se pudo eliminar item'); }
-  }
+  private readonly fb=inject(FormBuilder); private readonly service=inject(InventarioService); private readonly toast=inject(ToastService);
+  readonly items=signal<Inventario[]>([]); readonly selectedId=signal<string|null>(null); readonly modalOpen=signal(false); readonly deleteTarget=signal<Inventario|null>(null); readonly movementsTarget=signal<Inventario|null>(null); readonly movements=signal<MovimientoVista[]>([]); readonly loading=this.service.loading;
+  readonly baseCategories=['Material dental','Medicamentos','Bioseguridad','Instrumental','Limpieza','Equipos','Oficina','Otros']; readonly units=['Unidad','Caja','Paquete','Frasco','Tubo','Bolsa','Kit','Rollo'];
+  readonly filters=this.fb.nonNullable.group({ search:[''], category:[''], state:[''] }); readonly filterVersion=signal(0);
+  readonly form=this.fb.nonNullable.group({ codigo:['',[requiredTrim(),maxTrimLength(40)]],nombre:['',[requiredTrim(),maxTrimLength(120)]],categoria:['',[requiredTrim()]],unidad:['Unidad',[requiredTrim()]],stock:[0,[Validators.required,integerMin(0)]],stock_minimo:[0,[Validators.required,integerMin(0)]],costo:[0,[Validators.required,nonNegativeNumber(),maxTwoDecimals()]],vencimiento:[''],activo:[true] });
+  readonly movementForm=this.fb.nonNullable.group({tipo:['entrada' as 'entrada'|'salida'|'ajuste',[Validators.required]],cantidad:[1,[Validators.required,integerMin(0)]],motivo:['',[requiredTrim(),maxTrimLength(200)]]});
+  readonly categories=computed(()=>[...new Set([...this.baseCategories,...this.items().map(i=>i.categoria).filter((x):x is string=>Boolean(x))])]);
+  readonly filtered=computed(()=>{this.filterVersion();const f=this.filters.getRawValue(),term=normalizeWhitespace(f.search).toLowerCase();return this.items().filter(i=>(!term||i.codigo.toLowerCase().includes(term)||i.nombre.toLowerCase().includes(term))&&(!f.category||i.categoria===f.category)&&(!f.state||this.matchesState(i,f.state)));});
+  readonly active=computed(()=>this.items().filter(i=>i.activo)); readonly low=computed(()=>this.active().filter(i=>Number(i.stock)<=Number(i.stock_minimo))); readonly out=computed(()=>this.active().filter(i=>Number(i.stock)===0)); readonly expiring=computed(()=>this.active().filter(i=>{const d=this.daysToExpiry(i);return d!==null&&d>=0&&d<=90;})); readonly inventoryValue=computed(()=>this.active().reduce((s,i)=>s+Number(i.stock)*Number(i.costo??0),0));
+  ngOnInit():void{this.filters.valueChanges.subscribe(()=>this.filterVersion.update(v=>v+1));void this.load();}
+  async load():Promise<void>{try{this.items.set(await this.service.findAll({orderBy:'nombre',ascending:true}));}catch(e){console.error('Error cargando inventario:',e);this.toast.error('No se pudo cargar el inventario.');}}
+  newProduct():void{this.selectedId.set(null);this.form.reset({codigo:'',nombre:'',categoria:'',unidad:'Unidad',stock:0,stock_minimo:0,costo:0,vencimiento:'',activo:true});this.form.markAsPristine();this.form.markAsUntouched();this.modalOpen.set(true);}
+  edit(i:Inventario):void{this.selectedId.set(i.id);this.form.reset({codigo:i.codigo,nombre:i.nombre,categoria:i.categoria??'',unidad:this.validUnit(i.unidad),stock:Number(i.stock),stock_minimo:Number(i.stock_minimo),costo:Number(i.costo??0),vencimiento:i.vencimiento??'',activo:i.activo});this.modalOpen.set(true);}
+  close():void{this.modalOpen.set(false);}
+  async save():Promise<void>{this.normalize();this.validateDuplicate();if(this.form.invalid){this.form.markAllAsTouched();return;}const r=this.form.getRawValue();const payload:InventarioInsert={codigo:r.codigo,nombre:r.nombre,categoria:r.categoria,unidad:r.unidad,stock:Number(r.stock),stock_minimo:Number(r.stock_minimo),costo:Number(r.costo),vencimiento:r.vencimiento||null,activo:r.activo};try{this.selectedId()?await this.service.update(this.selectedId()!,payload):await this.service.create(payload);this.toast.success(this.selectedId()?'Producto actualizado':'Producto creado');this.close();await this.load();}catch(e){this.toast.error(e instanceof Error?e.message:'No se pudo guardar el producto.');}}
+  requestDelete(i:Inventario):void{this.deleteTarget.set(i);} async confirmDelete():Promise<void>{const i=this.deleteTarget();if(!i)return;try{await this.service.deactivate(i.id);this.toast.success('Producto desactivado');this.deleteTarget.set(null);await this.load();}catch(e){this.toast.error(e instanceof Error?e.message:'No se pudo desactivar el producto.');}}
+  async showMovements(i:Inventario):Promise<void>{this.movementsTarget.set(i);this.movementForm.reset({tipo:'entrada',cantidad:1,motivo:''});this.movementForm.markAsUntouched();try{this.movements.set(await this.service.movimientos(i.id));}catch(e){console.error('Error cargando movimientos:',e);this.toast.error('No se pudieron cargar los movimientos.');}}
+  async registerMovement():Promise<void>{const item=this.movementsTarget();if(!item)return;if(this.movementForm.invalid){this.movementForm.markAllAsTouched();return;}const raw=this.movementForm.getRawValue(),cantidad=Number(raw.cantidad);if(raw.tipo!=='ajuste'&&cantidad<=0){this.movementForm.controls.cantidad.setErrors({integerMin:{min:1}});this.movementForm.controls.cantidad.markAsTouched();return;}if(raw.tipo==='salida'&&cantidad>Number(item.stock)){this.movementForm.controls.cantidad.setErrors({server:'La salida no puede superar el stock disponible.'});this.movementForm.controls.cantidad.markAsTouched();return;}try{await this.service.registrarMovimiento(item.id,raw.tipo,cantidad,normalizeWhitespace(raw.motivo));this.toast.success('Movimiento registrado');await this.load();const updated=this.items().find(i=>i.id===item.id);if(updated)this.movementsTarget.set(updated);this.movements.set(await this.service.movimientos(item.id));this.movementForm.reset({tipo:'entrada',cantidad:1,motivo:''});this.movementForm.markAsUntouched();}catch(e){this.toast.error(e instanceof Error?e.message:'No se pudo registrar el movimiento.');}}
+  movementHelp():string{return this.movementForm.controls.tipo.value==='entrada'?'La cantidad se sumará al stock actual.':this.movementForm.controls.tipo.value==='salida'?'La cantidad se restará del stock actual.':'La cantidad indicada reemplazará el stock actual después del conteo físico.';}
+  displayUnit(value:string|null):string{return value&&/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ ]+$/.test(value)?value.toLowerCase():'unidades';} formatDate(v:string|null):string{if(!v)return 'No aplica';const [y,m,d]=v.split('-');return `${d}/${m}/${y}`;} currency(v:number|null):string{return new Intl.NumberFormat('es-EC',{style:'currency',currency:'USD'}).format(Number(v??0));}
+  stockLabel(i:Inventario):string{return Number(i.stock)<=0?'Sin stock':Number(i.stock)<=Number(i.stock_minimo)?'Stock bajo':'Disponible';} expiryLabel(i:Inventario):string{const d=this.daysToExpiry(i);if(d===null)return 'No vence';if(d<0)return 'Vencido';if(d<=30)return 'Vence pronto';if(d<=90)return 'Próximo a vencer';return 'Normal';}
+  private daysToExpiry(i:Inventario):number|null{if(!i.vencimiento)return null;const today=new Date();today.setHours(0,0,0,0);return Math.ceil((new Date(`${i.vencimiento}T00:00:00`).getTime()-today.getTime())/86400000);}
+  private matchesState(i:Inventario,s:string):boolean{return s==='available'?this.stockLabel(i)==='Disponible':s==='low'?this.stockLabel(i)==='Stock bajo':s==='out'?this.stockLabel(i)==='Sin stock':s==='expiring'?['Vence pronto','Próximo a vencer'].includes(this.expiryLabel(i)):s==='expired'?this.expiryLabel(i)==='Vencido':true;}
+  private validUnit(v:string|null):string{return v&&this.units.includes(v)?v:'Unidad';} private normalize():void{const r=this.form.getRawValue();this.form.patchValue({codigo:normalizeWhitespace(r.codigo).toUpperCase(),nombre:normalizeWhitespace(r.nombre),categoria:normalizeWhitespace(r.categoria),unidad:normalizeWhitespace(r.unidad)},{emitEvent:false});}
+  private validateDuplicate():void{const c=this.form.controls.codigo,id=this.selectedId(),dup=this.items().some(i=>i.codigo.toLowerCase()===c.value.toLowerCase()&&i.id!==id),errors={...(c.errors??{})};if(dup)errors['duplicateCode']=true;else delete errors['duplicateCode'];c.setErrors(Object.keys(errors).length?errors:null);}
 }

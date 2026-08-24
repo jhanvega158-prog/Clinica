@@ -2,12 +2,30 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PacientesService } from '../../core/services/pacientes.service';
 import { ToastService } from '../../core/services/toast.service';
-import { Paciente, PacienteInsert, SexoPaciente } from '../../core/models/interfaces/database.types';
+import { DocumentoClinico, Paciente, PacienteInsert, SexoPaciente } from '../../core/models/interfaces/database.types';
+import { ValidationFeedbackDirective } from '../../shared/directives/validation-feedback.directive';
+import {
+  allowedValues,
+  birthDate,
+  ecuadorianCedula,
+  ecuadorianPhone,
+  emailTrim,
+  emergencyContactPair,
+  emptyToNull,
+  maxTrimLength,
+  minTrimLength,
+  normalizeEmail,
+  normalizeName,
+  normalizeWhitespace,
+  notBlankOptional,
+  personName,
+  requiredTrim
+} from '../../shared/utils/validation.utils';
 
 @Component({
   selector: 'app-pacientes',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, ValidationFeedbackDirective],
   templateUrl: './pacientes.component.html',
   styleUrl: './pacientes.component.css'
 })
@@ -19,49 +37,80 @@ export class PacientesComponent implements OnInit {
   readonly selectedId = signal<string | null>(null);
   readonly loading = this.pacientesService.loading;
   readonly searchTerm = signal('');
+  readonly hasSearched = signal(false);
+  readonly showingAll = signal(false);
+  readonly documentosPorPaciente = signal<Map<string, DocumentoClinico[]>>(new Map());
+  readonly fotosPorPaciente = signal<Map<string, string>>(new Map());
 
   readonly form = this.fb.nonNullable.group({
-    numero_historia: ['', Validators.required],
-    cedula: ['', Validators.required],
-    nombres: ['', Validators.required],
-    apellidos: ['', Validators.required],
-    fecha_nacimiento: [''],
-    sexo: ['No especificado' as SexoPaciente, Validators.required],
-    telefono: [''],
-    email: ['', Validators.email],
-    direccion: [''],
-    ocupacion: [''],
-    contacto_emergencia: [''],
-    telefono_emergencia: [''],
-    alergias: [''],
-    antecedentes: [''],
+    numero_historia: ['', [requiredTrim(), maxTrimLength(30)]],
+    cedula: ['', [requiredTrim(), ecuadorianCedula()]],
+    nombres: ['', [requiredTrim(), personName(), minTrimLength(2), maxTrimLength(80)]],
+    apellidos: ['', [requiredTrim(), personName(), minTrimLength(2), maxTrimLength(80)]],
+    fecha_nacimiento: ['', [requiredTrim(), birthDate(120)]],
+    sexo: ['No especificado' as SexoPaciente, [Validators.required, allowedValues(['Femenino', 'Masculino', 'Otro', 'No especificado'] as const)]],
+    telefono: ['', [ecuadorianPhone(), maxTrimLength(10)]],
+    email: ['', [emailTrim(), maxTrimLength(120)]],
+    direccion: ['', [notBlankOptional(), minTrimLength(5), maxTrimLength(160)]],
+    ocupacion: ['', [notBlankOptional(), maxTrimLength(80)]],
+    contacto_emergencia: ['', [notBlankOptional(), personName(), minTrimLength(2), maxTrimLength(80)]],
+    telefono_emergencia: ['', [ecuadorianPhone(), maxTrimLength(10)]],
+    alergias: ['', [notBlankOptional(), maxTrimLength(500)]],
+    antecedentes: ['', [notBlankOptional(), maxTrimLength(1000)]],
     activo: [true]
-  });
+  }, { validators: [emergencyContactPair()] });
 
   ngOnInit(): void {
-    void this.load();
+    // La consulta se ejecuta únicamente cuando el usuario realiza una búsqueda.
   }
 
   async load(): Promise<void> {
+    if (this.showingAll()) await this.showAll();
+    else if (this.hasSearched() && this.searchTerm()) await this.search(this.searchTerm());
+  }
+
+  async showAll(): Promise<void> {
+    this.searchTerm.set('');
+    this.hasSearched.set(false);
+    this.showingAll.set(true);
     try {
-      this.pacientes.set(await this.pacientesService.findAll({ orderBy: 'apellidos', ascending: true }));
+      await this.setPatients(await this.pacientesService.listarTodos());
     } catch (error) {
-      this.toast.error(error instanceof Error ? error.message : 'No se pudieron cargar pacientes');
+      this.toast.error(error instanceof Error ? error.message : 'No se pudieron cargar los pacientes');
     }
   }
 
   async search(value: string): Promise<void> {
-    this.searchTerm.set(value);
+    const term = normalizeWhitespace(value);
+    this.searchTerm.set(term);
+    if (!term) { this.pacientes.set([]); this.hasSearched.set(false); return; }
+    this.hasSearched.set(true);
+    this.showingAll.set(false);
     try {
-      this.pacientes.set(value.trim() ? await this.pacientesService.search(value.trim()) : await this.pacientesService.findAll({ orderBy: 'apellidos', ascending: true }));
+      const pacientes = await this.pacientesService.search(term);
+      await this.setPatients(pacientes);
     } catch (error) {
       this.toast.error(error instanceof Error ? error.message : 'Busqueda no disponible');
     }
   }
 
-  handleSearch(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    void this.search(input.value);
+  runSearch(input: HTMLInputElement): void { void this.search(input.value); }
+
+  clearSearch(): void {
+    this.searchTerm.set('');
+    this.hasSearched.set(false);
+    this.showingAll.set(false);
+    this.pacientes.set([]);
+    this.documentosPorPaciente.set(new Map());
+    this.fotosPorPaciente.set(new Map());
+  }
+
+  documentosDe(pacienteId: string): DocumentoClinico[] {
+    return this.documentosPorPaciente().get(pacienteId) ?? [];
+  }
+
+  fotoDe(pacienteId: string): string | null {
+    return this.fotosPorPaciente().get(pacienteId) ?? null;
   }
 
   edit(paciente: Paciente): void {
@@ -99,9 +148,17 @@ export class PacientesComponent implements OnInit {
       antecedentes: '',
       activo: true
     });
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
   }
 
   async save(): Promise<void> {
+    if (this.loading()) {
+      return;
+    }
+    this.normalizeForm();
+    this.ensureInternalHistoryNumber();
+    this.validateDuplicados();
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -109,20 +166,20 @@ export class PacientesComponent implements OnInit {
 
     const raw = this.form.getRawValue();
     const payload: PacienteInsert = {
-      numero_historia: raw.numero_historia,
-      cedula: raw.cedula,
-      nombres: raw.nombres,
-      apellidos: raw.apellidos,
-      fecha_nacimiento: raw.fecha_nacimiento || null,
+      numero_historia: normalizeWhitespace(raw.numero_historia),
+      cedula: normalizeWhitespace(raw.cedula),
+      nombres: normalizeName(raw.nombres),
+      apellidos: normalizeName(raw.apellidos),
+      fecha_nacimiento: raw.fecha_nacimiento,
       sexo: raw.sexo,
-      telefono: raw.telefono || null,
-      email: raw.email || null,
-      direccion: raw.direccion || null,
-      ocupacion: raw.ocupacion || null,
-      contacto_emergencia: raw.contacto_emergencia || null,
-      telefono_emergencia: raw.telefono_emergencia || null,
-      alergias: raw.alergias || null,
-      antecedentes: raw.antecedentes || null,
+      telefono: emptyToNull(raw.telefono),
+      email: emptyToNull(normalizeEmail(raw.email)),
+      direccion: emptyToNull(raw.direccion),
+      ocupacion: emptyToNull(raw.ocupacion),
+      contacto_emergencia: emptyToNull(raw.contacto_emergencia),
+      telefono_emergencia: emptyToNull(raw.telefono_emergencia),
+      alergias: emptyToNull(raw.alergias),
+      antecedentes: emptyToNull(raw.antecedentes),
       foto_url: null,
       activo: raw.activo
     };
@@ -137,16 +194,18 @@ export class PacientesComponent implements OnInit {
         this.toast.success('Paciente creado');
       }
       this.clear();
-      await this.load();
+      if (this.hasSearched()) await this.search(this.searchTerm());
     } catch (error) {
       this.toast.error(error instanceof Error ? error.message : 'No se pudo guardar');
     }
   }
 
   async remove(paciente: Paciente): Promise<void> {
+    if (!window.confirm(`¿Eliminar permanentemente a ${paciente.nombres} ${paciente.apellidos}? También se borrarán su historia clínica, citas, tratamientos, facturas y archivos. Esta acción no se puede deshacer.`)) return;
     try {
       await this.pacientesService.delete(paciente.id);
-      this.toast.success('Paciente eliminado');
+      this.toast.success('Paciente y toda su información eliminados');
+      if (this.selectedId() === paciente.id) this.clear();
       await this.load();
     } catch (error) {
       this.toast.error(error instanceof Error ? error.message : 'No se pudo eliminar');
@@ -168,9 +227,66 @@ export class PacientesComponent implements OnInit {
       }
       this.toast.success('Archivo subido');
       input.value = '';
-      await this.load();
+      if (this.hasSearched()) await this.search(this.searchTerm());
     } catch (error) {
       this.toast.error(error instanceof Error ? error.message : 'No se pudo subir el archivo');
     }
+  }
+
+  private async setPatients(pacientes: Paciente[]): Promise<void> {
+    this.pacientes.set(pacientes);
+    const documentos = await Promise.all(pacientes.map(async (paciente) => [
+      paciente.id,
+      await this.pacientesService.listarDocumentos(paciente.id)
+    ] as const));
+    this.documentosPorPaciente.set(new Map(documentos));
+    const fotos = await Promise.all(pacientes.map(async (paciente) => [paciente.id, await this.pacientesService.fotoUrl(paciente)] as const));
+    this.fotosPorPaciente.set(new Map(fotos.filter((item): item is readonly [string, string] => Boolean(item[1]))));
+  }
+
+  private normalizeForm(): void {
+    const raw = this.form.getRawValue();
+    this.form.patchValue({
+      numero_historia: normalizeWhitespace(raw.numero_historia),
+      cedula: normalizeWhitespace(raw.cedula),
+      nombres: normalizeName(raw.nombres),
+      apellidos: normalizeName(raw.apellidos),
+      telefono: normalizeWhitespace(raw.telefono),
+      email: normalizeEmail(raw.email),
+      direccion: normalizeWhitespace(raw.direccion),
+      ocupacion: normalizeWhitespace(raw.ocupacion),
+      contacto_emergencia: normalizeName(raw.contacto_emergencia),
+      telefono_emergencia: normalizeWhitespace(raw.telefono_emergencia),
+      alergias: normalizeWhitespace(raw.alergias),
+      antecedentes: normalizeWhitespace(raw.antecedentes)
+    }, { emitEvent: false });
+  }
+
+  private ensureInternalHistoryNumber(): void {
+    if (normalizeWhitespace(this.form.controls.numero_historia.value)) return;
+    const cedula = normalizeWhitespace(this.form.controls.cedula.value);
+    if (cedula) {
+      this.form.controls.numero_historia.setValue(`PAC-${cedula}`, { emitEvent: false });
+    }
+  }
+
+  private validateDuplicados(): void {
+    const raw = this.form.getRawValue();
+    const id = this.selectedId();
+    const cedula = normalizeWhitespace(raw.cedula);
+    const email = normalizeEmail(raw.email);
+    this.setControlError('cedula', 'duplicateCedula', this.pacientes().some((paciente) => paciente.cedula === cedula && paciente.id !== id));
+    this.setControlError('email', 'duplicateEmail', Boolean(email) && this.pacientes().some((paciente) => normalizeEmail(paciente.email) === email && paciente.id !== id));
+  }
+
+  private setControlError(controlName: 'cedula' | 'email', key: string, active: boolean): void {
+    const control = this.form.controls[controlName];
+    const errors = { ...(control.errors ?? {}) };
+    if (active) {
+      errors[key] = true;
+    } else {
+      delete errors[key];
+    }
+    control.setErrors(Object.keys(errors).length ? errors : null);
   }
 }

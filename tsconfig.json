@@ -1,7 +1,7 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
-    "baseUrl": "./",
+    "baseUrl": "https://soquogsepvcrbihyrdjs.supabase.co",
     "outDir": "./dist/out-tsc",
     "strict": true,
     "noImplicitOverride": true,

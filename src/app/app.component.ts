@@ -1,33 +1,48 @@
 import { Component, computed, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import {
+  LucideBarChart3,
+  LucideCalendarDays,
+  LucideDynamicIcon,
+  LucideFileText,
+  LucideIcon,
+  LucideLayoutDashboard,
+  LucideLogOut,
+  LucidePackage,
+  LucideReceipt,
+  LucideSmile,
+  LucideStethoscope,
+  LucideUsers
+} from '@lucide/angular';
 import { AuthService } from './core/services/auth.service';
 import { ToastService } from './core/services/toast.service';
 
 interface NavLink {
   path: string;
   label: string;
-  icon: string;
+  icon: LucideIcon;
 }
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, LucideDynamicIcon],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
 export class AppComponent {
   readonly menuOpen = signal(false);
+  readonly logOutIcon = LucideLogOut;
   readonly links: NavLink[] = [
-    { path: '/dashboard', label: 'Dashboard', icon: 'D' },
-    { path: '/pacientes', label: 'Pacientes', icon: 'P' },
-    { path: '/historia-clinica', label: 'Historia clinica', icon: 'H' },
-    { path: '/agenda', label: 'Agenda', icon: 'A' },
-    { path: '/odontograma', label: 'Odontograma', icon: 'O' },
-    { path: '/tratamientos', label: 'Tratamientos', icon: 'T' },
-    { path: '/facturacion', label: 'Facturacion', icon: 'F' },
-    { path: '/inventario', label: 'Inventario', icon: 'I' },
-    { path: '/reportes', label: 'Reportes', icon: 'R' }
+    { path: '/dashboard', label: 'Dashboard', icon: LucideLayoutDashboard },
+    { path: '/pacientes', label: 'Pacientes', icon: LucideUsers },
+    { path: '/historia-clinica', label: 'Historia Clínica', icon: LucideFileText },
+    { path: '/agenda', label: 'Agenda', icon: LucideCalendarDays },
+    { path: '/odontograma', label: 'Odontograma', icon: LucideSmile },
+    { path: '/tratamientos', label: 'Tratamientos', icon: LucideStethoscope },
+    { path: '/facturacion', label: 'Facturación', icon: LucideReceipt },
+    { path: '/inventario', label: 'Inventario', icon: LucidePackage },
+    { path: '/reportes', label: 'Reportes', icon: LucideBarChart3 }
   ];
 
   readonly profileName = computed(() => {
@@ -37,6 +52,10 @@ export class AppComponent {
     }
     return `${profile.nombres} ${profile.apellidos}`.trim();
   });
+
+  readonly accountEmail = computed(() =>
+    this.auth.user()?.email ?? this.auth.profile()?.email ?? this.profileName()
+  );
 
   readonly initials = computed(() =>
     this.profileName()

@@ -2,59 +2,36 @@
   <div class="app-shell">
     <aside [class.open]="menuOpen()">
       <div class="brand">
-        <span class="brand-mark">OC</span>
-        <div>
-          <strong>OdontoCare</strong>
-          <small>Gestion clinica dental</small>
-        </div>
+        <img class="brand-logo" src="assets/images/logo.jpeg" alt="VitaDenti - Centro Integral Odontológico">
+        <div class="brand-copy"><strong>VitaDenti</strong><small>Centro Integral Odontológico</small></div>
       </div>
-
       <nav>
         @for (link of links; track link.path) {
           <a [routerLink]="link.path" routerLinkActive="active" (click)="menuOpen.set(false)">
-            <span>{{ link.icon }}</span>
-            {{ link.label }}
+            <span class="nav-icon"><svg [lucideIcon]="link.icon" size="20"></svg></span>{{ link.label }}
           </a>
         }
       </nav>
-
       <div class="profile">
         <div class="avatar">{{ initials() }}</div>
-        <div>
-          <strong>{{ profileName() }}</strong>
-          <small>{{ auth.profile()?.rol || 'Usuario' }}</small>
-        </div>
-        <button type="button" (click)="logout()" title="Cerrar sesion">Salir</button>
+        <div><strong>{{ accountEmail() }}</strong><small>{{ auth.profileLoading() ? 'Cargando perfil...' : (auth.role() || 'Usuario') }}</small></div>
+        <button type="button" (click)="logout()" title="Cerrar sesion"><svg [lucideIcon]="logOutIcon" size="20"></svg>Salir</button>
       </div>
     </aside>
-
     <main>
       <header>
         <button type="button" class="menu" (click)="toggleMenu()">Menu</button>
-        <div>
-          <strong>Clinica Dental</strong>
-          <small>{{ profileName() }}</small>
-        </div>
+        <img class="header-logo" src="assets/images/logo.jpeg" alt="VitaDenti">
+        <div><strong>{{ accountEmail() }}</strong><small>{{ auth.profileLoading() ? 'Cargando perfil...' : (auth.role() || 'Usuario') }}</small></div>
         <button type="button" class="primary" routerLink="/pacientes">Nuevo paciente</button>
       </header>
-
-      <section class="content">
-        <router-outlet />
-      </section>
+      <section class="content"><router-outlet /></section>
     </main>
-
-    @if (menuOpen()) {
-      <button type="button" class="overlay" (click)="menuOpen.set(false)"></button>
-    }
+    @if (menuOpen()) { <button type="button" class="overlay" (click)="menuOpen.set(false)"></button> }
   </div>
-} @else {
-  <router-outlet />
-}
-
+} @else { <router-outlet /> }
 <div class="toast-stack">
   @for (message of toast.messages(); track message.id) {
-    <button type="button" class="toast" [class]="message.type" (click)="toast.remove(message.id)">
-      {{ message.text }}
-    </button>
+    <button type="button" class="toast" [class]="message.type" (click)="toast.remove(message.id)">{{ message.text }}</button>
   }
 </div>

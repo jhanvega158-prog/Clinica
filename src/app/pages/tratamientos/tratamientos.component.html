@@ -1,16 +1,18 @@
-<div class="page-title"><div><h1>Tratamientos</h1><p>Plan terapeutico y sesiones clinicas.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button></div></div>
+<div class="page-title"><div><h1>Tratamientos</h1><p>Plan terapéutico y sesiones clínicas.</p></div><div class="actions"><button class="btn" type="button" (click)="clear()">Nuevo</button><button class="btn" type="button" (click)="load()">Actualizar</button></div></div>
 <form class="panel" [formGroup]="form" (ngSubmit)="save()">
   <h2>{{ selectedId() ? 'Editar tratamiento' : 'Nuevo tratamiento' }}</h2>
   <div class="grid">
-    <label class="field">Paciente ID<input formControlName="paciente_id"></label><label class="field">Historia ID<input formControlName="historia_id"></label>
+    <label class="field">Cédula del paciente<input formControlName="cedula" (blur)="buscarPacientePorCedula()" (keydown.enter)="$event.preventDefault(); buscarPacientePorCedula()"></label><label class="field">Paciente<input [value]="pacienteDisplayValue()" readonly placeholder="Se completa automáticamente"></label><input formControlName="paciente_id" hidden>
     <label class="field">Fecha<input type="date" formControlName="fecha"></label><label class="field">Estado<select formControlName="estado"><option>pendiente</option><option>activo</option><option>completado</option><option>anulado</option></select></label>
     <label class="field span-2">Diagnostico<input formControlName="diagnostico"></label><label class="field span-2">Procedimiento<textarea rows="2" formControlName="procedimiento"></textarea></label>
     <label class="field span-2">Prescripcion<textarea rows="2" formControlName="prescripcion"></textarea></label><label class="field">Costo<input type="number" formControlName="costo"></label><label class="field">Notas<input formControlName="notas"></label>
   </div>
+  @if (pacienteError()) { <p class="error-text">{{ pacienteError() }}</p> }
+  @if (pacienteInfo()) { <p class="helper-text">{{ pacienteInfo() }}</p> }
   <div class="actions"><button class="btn primary" type="submit" [disabled]="loading()">Guardar</button><button class="btn" type="button" (click)="clear()">Limpiar</button></div>
 </form>
 @if (tratamientos().length) {
   <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Paciente</th><th>Diagnostico</th><th>Procedimiento</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
-    @for (item of tratamientos(); track item.id) { <tr><td>{{ item.fecha }}</td><td>{{ item.paciente_id }}</td><td>{{ item.diagnostico }}</td><td>{{ item.procedimiento }}</td><td><span class="badge">{{ item.estado }}</span></td><td class="actions"><button class="btn" type="button" (click)="edit(item)">Editar</button><button class="btn danger" type="button" (click)="remove(item)">Eliminar</button></td></tr> }
+    @for (item of tratamientos(); track item.id) { <tr><td>{{ item.fecha }}</td><td>{{ pacienteNombre(item.paciente_id) }}</td><td>{{ item.diagnostico }}</td><td>{{ item.procedimiento }}</td><td><span class="badge">{{ item.estado }}</span></td><td class="actions"><button class="btn" type="button" (click)="edit(item)">Editar</button><button class="btn danger" type="button" (click)="remove(item)">Eliminar</button></td></tr> }
   </tbody></table></div>
 } @else { <div class="empty">No hay tratamientos registrados.</div> }
